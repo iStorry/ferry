@@ -140,6 +140,7 @@ public sealed partial class MainWindow : Window
         _app.StartBrowsing();
         _app.Updater.Changed += UpdateUpdateLine;
         _app.Updater.CheckDailyInBackground();
+        _app.PluginUpdates.CheckAfterStart();
         new ClipboardWatcher(Handle).Changed += OnClipboardChanged;
         StartTray();
         if (!_app.IsDecoy)

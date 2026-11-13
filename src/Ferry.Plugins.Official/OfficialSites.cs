@@ -59,17 +59,21 @@ public static class OfficialSites
     /// </summary>
     public static bool TryAdd(SitePlugin plugin, [NotNullWhen(false)] out string? reason)
     {
+        bool again;
         lock (Changing)
         {
+            // a setting left by a plugin that was removed is nobody's now, and the plugin installed in its place may have changed it
+            bool Taken(SettingKey key) => SettingKey.TryFind(key.Name, out var known) && known != key && !s_left.Contains(key.Name);
             reason = s_all.Any(other => other.Name == plugin.Name) ? $"There is a plugin called {plugin.Name} already."
                 : plugin.SiteIds.FirstOrDefault(id => id == DirectSite.SiteId || s_all.Any(other => other.Owns(id))) is { } site ? $"Its site \"{site}\" is another plugin's."
-                : plugin.Options.Prepend(plugin.Enabled).FirstOrDefault(key => SettingKey.TryFind(key.Name, out var known) && known != key) is { } key ? $"Its setting {key.Name} is there already."
+                : plugin.Options.Prepend(plugin.Enabled).FirstOrDefault(Taken) is { } key ? $"Its setting {key.Name} is there already."
                 : null;
             if (reason is not null)
                 return false;
+            again = plugin.Options.Prepend(plugin.Enabled).Any(key => s_left.Remove(key.Name));
             s_all = [.. s_all, plugin];
         }
-        plugin.Register();
+        plugin.Register(again);
         return true;
     }
 
@@ -77,8 +81,14 @@ public static class OfficialSites
     public static void Remove(SitePlugin plugin)
     {
         lock (Changing)
+        {
             s_all = [.. s_all.Where(other => other != plugin)];
+            s_left.UnionWith(plugin.Options.Prepend(plugin.Enabled).Select(key => key.Name));
+        }
     }
+
+    // the names of settings whose plugin was removed; under Changing
+    private static readonly HashSet<string> s_left = new(StringComparer.Ordinal);
 
     /// <summary>Which links can be downloaded, by the machine that downloads them.</summary>
     /// <param name="secrets">null where none are kept, as on a server's agent</param>

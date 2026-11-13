@@ -261,15 +261,19 @@ public sealed record SettingKey(string Name, SettingType Type, string Default, s
     public static IReadOnlyList<SettingKey> All => s_keys;
 
     /// <summary>A plugin's settings, in the one table, before any of them is read. A name that is there already stays as it is.</summary>
-    public static void Contribute(IEnumerable<SettingKey> keys)
+    /// <param name="replace">a name that is there already becomes this one: for a plugin installed again, whose settings may have changed</param>
+    public static void Contribute(IEnumerable<SettingKey> keys, bool replace = false)
     {
         lock (Adding)
         {
-            var fresh = keys.Where(key => !s_byName.ContainsKey(key.Name)).DistinctBy(key => key.Name).ToList();
-            if (fresh.Count == 0)
+            var given = keys.DistinctBy(key => key.Name).ToList();
+            var fresh = given.Where(key => !s_byName.ContainsKey(key.Name)).ToList();
+            var changed = replace ? given.Where(key => s_byName.TryGetValue(key.Name, out var known) && known != key).ToDictionary(key => key.Name) : [];
+            if (fresh.Count == 0 && changed.Count == 0)
                 return;
-            s_byName = new Dictionary<string, SettingKey>(s_byName.Concat(fresh.Select(key => KeyValuePair.Create(key.Name, key))), StringComparer.Ordinal);
-            s_keys = [.. s_keys, .. fresh];
+            SettingKey[] all = [.. s_keys.Select(key => changed.GetValueOrDefault(key.Name, key)), .. fresh];
+            s_byName = all.ToDictionary(key => key.Name, StringComparer.Ordinal);
+            s_keys = all;
         }
     }
 

@@ -8,8 +8,12 @@ namespace Ferry.Core.Plugins;
 
 /// <summary>A package kept on this PC.</summary>
 /// <param name="File">where it is kept</param>
-public sealed record StoredPlugin(PluginPackage Package, string File)
+/// <param name="Source">the link it was installed from, where a newer one is looked for; null when it came from a file</param>
+public sealed record StoredPlugin(PluginPackage Package, string File, Uri? Source = null)
 {
+    /// <summary>Where a newer package of it is looked for: where it came from, else where its manifest says.</summary>
+    public Uri? UpdatesFrom => Source ?? Manifest.Update;
+
     public PluginManifest Manifest => Package.Manifest;
 
     /// <summary>What it is called on the server, where a plugin's package is found by its id.</summary>
@@ -32,7 +36,7 @@ public sealed class PluginStore(string folder)
             {
                 try
                 {
-                    plugins.Add(new StoredPlugin(PluginPackage.Read(file), file));
+                    plugins.Add(new StoredPlugin(PluginPackage.Read(file), file, ReadSource(file)));
                 }
                 catch (PluginException e)
                 {
@@ -45,17 +49,43 @@ public sealed class PluginStore(string folder)
     }
 
     /// <summary>Keep <paramref name="package"/>, read from <paramref name="file"/>, in place of any package of the same plugin.</summary>
+    /// <param name="source">the link it came from; null for a file, which leaves where the package before it came from as it was</param>
     /// <exception cref="IOException">it can't be written</exception>
-    public StoredPlugin Add(PluginPackage package, string file)
+    public StoredPlugin Add(PluginPackage package, string file, Uri? source = null)
     {
         Directory.CreateDirectory(folder);
         var kept = Path.Combine(folder, package.Manifest.Id + PluginPackage.Extension);
         AtomicFile.Write(kept, File.ReadAllBytes(file));
-        return new StoredPlugin(package, kept);
+        if (source is not null)
+            AtomicFile.WriteText(kept + SourceSuffix, source.AbsoluteUri);
+        return new StoredPlugin(package, kept, source ?? ReadSource(kept));
     }
 
     /// <exception cref="IOException">it can't be deleted</exception>
-    public void Remove(StoredPlugin plugin) => File.Delete(Path.Combine(folder, plugin.ServerName));
+    public void Remove(StoredPlugin plugin)
+    {
+        var kept = Path.Combine(folder, plugin.ServerName);
+        File.Delete(kept);
+        File.Delete(kept + SourceSuffix);
+    }
+
+    // beside a package, the link it was installed from
+    private const string SourceSuffix = ".source";
+
+    private static Uri? ReadSource(string package)
+    {
+        try
+        {
+            return File.Exists(package + SourceSuffix) && Uri.TryCreate(File.ReadAllText(package + SourceSuffix).Trim(), UriKind.Absolute, out var source)
+                   && source.Scheme == Uri.UriSchemeHttps
+                ? source
+                : null;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return null; // it only means no updates are looked for
+        }
+    }
 }
 
 /// <summary>An installed plugin as this PC knows it, from its manifest alone.</summary>

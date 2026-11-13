@@ -326,6 +326,72 @@ public sealed class PluginTests : IDisposable
         Assert.Null(agent.Secret(new PluginSecret("another", "Another", "")));
         Assert.Null(new PluginContext(_http, settings, Secrets: null).Secret(secret));
     }
+
+    [Fact]
+    public void StoreRemembersWhereAPackageCameFromAndAFileLeavesThatAsItWas()
+    {
+        var store = new PluginStore(Path.Combine(_root, "store"));
+        var link = new Uri("https://github.com/someone/plugins/releases/download/v1/tests.example-1.2.0.ferryplugin");
+
+        store.Add(PluginPackage.Read(Pack()), Path.Combine(_root, "example.ferryplugin"), link);
+        Assert.Equal(link, Assert.Single(store.List(out _)).Source);
+
+        var newer = Pack(Manifest() with { Version = "1.3.0" }, "newer.ferryplugin");
+        var kept = store.Add(PluginPackage.Read(newer), newer); // from a file this time
+        Assert.Equal(link, kept.Source);
+        Assert.Equal(link, kept.UpdatesFrom);
+
+        store.Remove(kept);
+        Assert.Empty(Directory.GetFiles(Path.Combine(_root, "store")));
+    }
+
+    [Fact]
+    public async Task ANewerPackageIsFoundAmongTheLatestReleasesFiles()
+    {
+        _github.Static["/repos/someone/plugins/releases/latest"] = ("application/json", """
+            {"tag_name":"v7","assets":[{"name":"tests.example-1.3.0.ferryplugin"},{"name":"tests.example-1.10.0.ferryplugin"},
+                                       {"name":"tests.other-9.0.0.ferryplugin"},{"name":"notes.txt"}]}
+            """u8.ToArray());
+        var download = new PluginDownload(_http, _github.Url);
+        var from = new GitHubReleaseFile("someone", "plugins", "v1", "tests.example-1.2.0.ferryplugin");
+
+        var newer = await download.NewerAsync(from, "tests.example", new Version(1, 2, 0), "secret-token", CancellationToken.None);
+        var none = await download.NewerAsync(from, "tests.example", new Version(1, 10, 0), token: null, CancellationToken.None);
+
+        Assert.Equal(new Version(1, 10, 0), newer!.Version); // by number, not by spelling
+        Assert.Equal(new GitHubReleaseFile("someone", "plugins", "v7", "tests.example-1.10.0.ferryplugin"), newer.File);
+        Assert.Equal("https://github.com/someone/plugins/releases/download/v7/tests.example-1.10.0.ferryplugin", newer.Link.AbsoluteUri);
+        Assert.Null(none);
+        Assert.Equal(["Bearer secret-token", null], _github.Requests.Select(request => request.Headers["Authorization"]));
+    }
+
+    [Fact]
+    public void ATokenIsKeptUnderItsRepositorysName()
+    {
+        var file = new GitHubReleaseFile("Some.One", "My_Plugins", "v1", "a.ferryplugin");
+
+        Assert.Equal("github-token-some-one-my-plugins", file.TokenSecret);
+        Assert.Matches("^[a-z0-9-]+$", file.TokenSecret);
+    }
+
+    [Fact]
+    public void APluginInstalledAgainMayHaveChangedItsSettings()
+    {
+        var switchKey = new SettingKey("FERRY_PLUGIN_AGAIN", SettingType.Boolean, "false", "A plugin that is updated.");
+        SitePlugin Made(string help) => new("Again", switchKey) { Options = [new SettingKey("FERRY_AGAIN_ADDRESS", SettingType.Text, "", help)] };
+        var first = Made("Where it is.");
+        var second = Made("Where it is now.");
+
+        Assert.True(Ferry.Plugins.Official.OfficialSites.TryAdd(first, out _));
+        Assert.False(Ferry.Plugins.Official.OfficialSites.TryAdd(Made("Another's."), out var taken)); // while the first is there
+        Ferry.Plugins.Official.OfficialSites.Remove(first);
+        Assert.True(Ferry.Plugins.Official.OfficialSites.TryAdd(second, out var reason), reason);
+
+        Assert.NotNull(taken);
+        Assert.True(SettingKey.TryFind("FERRY_AGAIN_ADDRESS", out var known));
+        Assert.Equal("Where it is now.", known.Help);
+        Ferry.Plugins.Official.OfficialSites.Remove(second);
+    }
 }
 
 /// <summary>Settings of plugins that tests make up, in the one table, as an install puts a plugin's there.</summary>

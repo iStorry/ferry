@@ -41,6 +41,7 @@ public sealed class AppServices
         Speed = new QueueSpeed(Queue, ui);
         Updater = new Updater(this, ui);
         Browse = new BrowseHost(this, ui);
+        PluginUpdates = new PluginUpdates(this);
     }
 
     /// <summary>
@@ -98,6 +99,9 @@ public sealed class AppServices
     /// <summary>The installed plugin that looks titles up for the Library page: the first that does and is on. Null when there is none, and for a decoy.</summary>
     public InstalledPlugin? LibraryPlugin =>
         IsDecoy ? null : Installed.All.FirstOrDefault(installed => installed.Stored.Manifest.LooksUpTitles && installed.Plugin.IsOn(Settings));
+
+    /// <summary>Newer packages of the installed plugins, where they are looked for.</summary>
+    public PluginUpdates PluginUpdates { get; }
 
     /// <summary>The plugins someone installed, beside those that come with Ferry.</summary>
     public InstalledPlugins Installed { get; }

@@ -206,9 +206,9 @@
                                 <Grid Width="16" Height="16" VerticalAlignment="Center">
                                     <FontIcon x:Name="ModeIcon" Glyph="&#xE7F8;" FontSize="14" />
                                     <Ellipse x:Name="ModeDot" Width="8" Height="8" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-2,0" Visibility="Collapsed" />
-                                    <!-- in place of the dot while the connection is being made or closed -->
-                                    <ProgressRing x:Name="ModeSpinner" Width="10" Height="10" MinWidth="0" MinHeight="0" HorizontalAlignment="Right" VerticalAlignment="Top"
-                                                  Margin="0,-3,-3,0" IsActive="False" Visibility="Collapsed" />
+                                    <!-- in place of the icon while the connection is being made or closed: a ring on its corner is too small to be drawn where it is put -->
+                                    <ProgressRing x:Name="ModeSpinner" Width="14" Height="14" MinWidth="0" MinHeight="0" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                  IsActive="False" Visibility="Collapsed" />
                                 </Grid>
                                 <TextBlock x:Name="ModeTitle" Grid.Column="1" Tag="wide" Text="This PC" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"
                                            TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />

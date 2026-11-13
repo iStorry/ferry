@@ -15,10 +15,23 @@ public sealed partial record GitHubReleaseFile(string Owner, string Repo, string
             ? new GitHubReleaseFile(Part(match, "owner"), Part(match, "repo"), Part(match, "tag"), Part(match, "name"))
             : null;
 
+    /// <summary>What an access token for this file's repository is kept under, among the secrets.</summary>
+    public string TokenSecret => "github-token-" + NotPlain().Replace($"{Owner}-{Repo}".ToLowerInvariant(), "-");
+
     private static string Part(Match match, string name) => Uri.UnescapeDataString(match.Groups[name].Value);
+
+    [GeneratedRegex("[^a-z0-9-]")]
+    private static partial Regex NotPlain();
 
     [GeneratedRegex(@"^/(?<owner>[^/]+)/(?<repo>[^/]+)/releases/download/(?<tag>[^/]+)/(?<name>[^/]+)$")]
     private static partial Regex DownloadPath();
+}
+
+/// <summary>A newer package of an installed plugin, and the release file it is.</summary>
+public sealed record PluginUpdate(Version Version, GitHubReleaseFile File)
+{
+    /// <summary>The file's address as a browser has it, which is also what it is installed from.</summary>
+    public Uri Link => new($"https://github.com/{File.Owner}/{File.Repo}/releases/download/{Uri.EscapeDataString(File.Tag)}/{Uri.EscapeDataString(File.Name)}");
 }
 
 /// <summary>A plugin's package from a link, brought to a file to be read like any other. Nothing of it is trusted for having been downloaded.</summary>
@@ -76,6 +89,46 @@ public sealed class PluginDownload(HttpFetcher http, Uri? api = null)
         return await SaveAsync(() => Asked(asset, token, "application/octet-stream"), folder, cancel);
     }
 
+    /// <summary>
+    /// A newer package of a plugin than <paramref name="installed"/>, among the files of the repository's latest release:
+    /// one named "{id}-{version}.ferryplugin", as the pack tool names them. Null when the latest has none newer.
+    /// </summary>
+    /// <param name="source">a release file of the repository, as the plugin was installed from</param>
+    /// <param name="token">for a repository only some may read; null to ask as anyone can</param>
+    /// <exception cref="StageException">GitHub couldn't be asked, or didn't open the repository (<see cref="Stage.Update"/>)</exception>
+    public async Task<PluginUpdate?> NewerAsync(GitHubReleaseFile source, string pluginId, Version installed, string? token, CancellationToken cancel)
+    {
+        var latest = new Uri(_api, $"repos/{Uri.EscapeDataString(source.Owner)}/{Uri.EscapeDataString(source.Repo)}/releases/latest");
+        try
+        {
+            using var response = await http.SendAsync(Asked(latest, token, "application/vnd.github+json"), Stage.Update, cancel);
+            using var answer = JsonDocument.Parse(await HttpFetcher.ReadTextAsync(response, MaxAnswerBytes, Stage.Update, cancel));
+            var release = answer.RootElement;
+            if (release.ValueKind != JsonValueKind.Object || !release.TryGetProperty("tag_name", out var tag) || tag.GetString() is not { Length: > 0 } tagName
+                || !release.TryGetProperty("assets", out var assets) || assets.ValueKind != JsonValueKind.Array)
+                return null;
+            PluginUpdate? newest = null;
+            foreach (var asset in assets.EnumerateArray())
+            {
+                if (asset.TryGetProperty("name", out var called) && called.GetString() is { } name && PackageVersion(name, pluginId) is { } version
+                    && version > installed && (newest is null || version > newest.Version))
+                    newest = new PluginUpdate(version, source with { Tag = tagName, Name = name });
+            }
+            return newest;
+        }
+        catch (JsonException e)
+        {
+            throw new StageException(Stage.Update, "GitHub's answer about the latest release couldn't be read.", inner: e);
+        }
+    }
+
+    /// <summary>The version in a package's name, "{id}-{version}.ferryplugin"; null when the name isn't that plugin's.</summary>
+    internal static Version? PackageVersion(string name, string pluginId) =>
+        name.StartsWith(pluginId + "-", StringComparison.Ordinal) && name.EndsWith(PluginPackage.Extension, StringComparison.Ordinal)
+        && Version.TryParse(name[(pluginId.Length + 1)..^PluginPackage.Extension.Length], out var version)
+            ? version
+            : null;
+
     /// <summary>Where the API serves the release's file called <paramref name="name"/>; null when it has none.</summary>
     private Uri? AssetUrl(JsonElement release, string name)
     {
@@ -92,12 +145,13 @@ public sealed class PluginDownload(HttpFetcher http, Uri? api = null)
         return null;
     }
 
-    private static HttpRequestMessage Asked(Uri url, string token, string accept)
+    private static HttpRequestMessage Asked(Uri url, string? token, string accept)
     {
         var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.UserAgent.ParseAdd($"{Product.Name}/{Product.Version}");
         request.Headers.Accept.ParseAdd(accept);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        if (token is not null)
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return request;
     }
 

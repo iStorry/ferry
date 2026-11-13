@@ -149,7 +149,7 @@ public sealed partial class MainWindow
 
     /// <summary>
     /// The card in the sidebar's foot: where downloads happen, how that is, and the room left there. Its icon says where,
-    /// also in a narrow window, with a dot on its corner in the colour of how it is, or a spinner while that is changing.
+    /// also in a narrow window, with a dot on its corner in the colour of how it is; while that is changing a spinner takes the icon's place.
     /// </summary>
     private void UpdateModeLine()
     {
@@ -170,6 +170,7 @@ public sealed partial class MainWindow
         ModeDot.Fill = ThemeBrushes.Get(tone, Root.ActualTheme);
         ModeDot.Visibility = !busy && tone != ThemeBrushes.Tertiary ? Visibility.Visible : Visibility.Collapsed;
         (ModeSpinner.Visibility, ModeSpinner.IsActive) = (busy ? Visibility.Visible : Visibility.Collapsed, busy);
+        ModeIcon.Visibility = busy ? Visibility.Collapsed : Visibility.Visible;
         ToolTipService.SetToolTip(WhereCard, WhereTip(queue, title, detail));
         // in a narrow window the detail is hidden: a screen reader still hears it
         AutomationProperties.SetName(WhereCard, $"{title}, {detail}");

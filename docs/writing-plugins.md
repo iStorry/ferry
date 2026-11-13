@@ -10,7 +10,17 @@ loading a package have been run. Putting a package on a real server over SSH has
 
 In Ferry: Plugins, the + beside the search box, then From a file or From a link (https only). A link to a file of a
 GitHub release in a repository that isn't public works too: Ferry asks for an access token that can read that
-repository, uses it for the download, and doesn't keep it. Ferry reads the package,
+repository, and keeps it, encrypted for the Windows user, for the plugin's updates. Forget token, on the plugin's page,
+removes it.
+
+## Updates
+
+A plugin installed from a GitHub release is looked for again among the files of that repository's latest release: a
+package named `{id}-{version}.ferryplugin`, as the pack tool names them, with a higher version than the one installed.
+Ferry says so on the plugin's card and offers it on the plugin's page; it installs nothing by itself, and an update goes
+through the same questions as an install. So to publish an update: raise the version, pack, and attach the package to a
+new release that isn't marked a pre-release. A plugin installed from a file isn't looked for, unless its manifest names
+a release file (`--update` when packing). Ferry reads the package,
 shows who it says it is from, whether it is signed, and what a plugin can do, and installs it if you agree. The next
 time Ferry connects to your server it puts the package there, in `~/.ferry/plugins`, and starts the agent again.
 Removing it is on the plugin's own page.

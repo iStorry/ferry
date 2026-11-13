@@ -30,11 +30,19 @@ public static class PluginInstall
     {
         if (await Dialogs.AskAsync(root, "Add a plugin from a link", "The link to its .ferryplugin file", "", "Next") is not { } text)
             return null;
-        if (!PluginDownload.TryReadLink(text, out var link, out var reason))
-        {
-            await Dialogs.ShowErrorAsync(root, NotInstalled, reason);
-            return null;
-        }
+        if (PluginDownload.TryReadLink(text, out var link, out var reason))
+            return await FromLinkAsync(root, app, link);
+        await Dialogs.ShowErrorAsync(root, NotInstalled, reason);
+        return null;
+    }
+
+    /// <summary>Install the newer package that was found for a plugin, as it would be from its link.</summary>
+    /// <returns>whether it was installed</returns>
+    public static async Task<bool> UpdateAsync(XamlRoot? root, AppServices app, PluginUpdate update) =>
+        await FromLinkAsync(root, app, update.Link) is not null;
+
+    private static async Task<string?> FromLinkAsync(XamlRoot? root, AppServices app, Uri link)
+    {
         string? file = null;
         try
         {
@@ -49,11 +57,11 @@ public static class PluginInstall
             catch (StageException e) when (e.Status == System.Net.HttpStatusCode.NotFound && GitHubReleaseFile.TryRead(link) is { } release)
             {
                 // GitHub says "not found" of a repository only some may read: with a token of theirs it may be there after all
-                if (await AskTokenAsync(root, release) is not { } token)
+                file = await WithTokenAsync(root, app, download, release, folder, limit.Token);
+                if (file is null)
                     return null;
-                file = await download.FetchAsync(release, token, folder, limit.Token);
             }
-            return await InstallAsync(root, app, file, link.Host);
+            return await InstallAsync(root, app, file, link);
         }
         catch (Exception e) when (e is StageException or PluginException or OperationCanceledException)
         {
@@ -67,7 +75,40 @@ public static class PluginInstall
         }
     }
 
-    /// <summary>A GitHub access token for a release that isn't public; null when none was given. It is used for this download and not kept.</summary>
+    /// <summary>
+    /// A release file of a repository that isn't public: with the token kept for it, or one asked for now when there is none
+    /// or GitHub no longer takes it. A token that worked is kept, encrypted, for the next update.
+    /// </summary>
+    /// <returns>the file it was brought to; null when no token was given</returns>
+    private static async Task<string?> WithTokenAsync(XamlRoot? root, AppServices app, PluginDownload download, GitHubReleaseFile release, string folder,
+                                                      CancellationToken cancel)
+    {
+        if (PluginUpdates.Token(app, release) is { } kept)
+        {
+            try
+            {
+                return await download.FetchAsync(release, kept, folder, cancel);
+            }
+            catch (StageException)
+            {
+                // expired, or taken back: asked for again below
+            }
+        }
+        if (await AskTokenAsync(root, release) is not { } token)
+            return null;
+        var file = await download.FetchAsync(release, token, folder, cancel);
+        try
+        {
+            app.Secrets.Save(release.TokenSecret, System.Text.Encoding.UTF8.GetBytes(token));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            CrashLog.Write("keeping the access token", e); // asked for again next time
+        }
+        return file;
+    }
+
+    /// <summary>A GitHub access token for a release that isn't public; null when none was given.</summary>
     private static async Task<string?> AskTokenAsync(XamlRoot? root, GitHubReleaseFile release)
     {
         var box = new PasswordBox { Header = "Access token", PlaceholderText = "github_pat_…" };
@@ -75,8 +116,8 @@ public static class PluginInstall
         panel.Children.Add(new TextBlock
         {
             Text = $"GitHub has no public file there. If {release.Owner}/{release.Repo} is a repository only some people may read, give a token that can read "
-                   + "its contents: a fine-grained one for that repository alone, with Contents set to read-only. Ferry sends it to GitHub for this "
-                   + "download and doesn't keep it.",
+                   + "its contents: a fine-grained one for that repository alone, with Contents set to read-only.\n\nFerry sends it to GitHub only, and keeps "
+                   + "it, encrypted for your Windows user, to look for updates of the plugin. Forget token, on the plugin's page, removes it.",
             TextWrapping = TextWrapping.Wrap,
         });
         panel.Children.Add(box);
@@ -86,8 +127,8 @@ public static class PluginInstall
     }
 
     /// <summary>Read the package, ask, keep it, and have the server get it.</summary>
-    /// <param name="from">where it came from, when not from this PC</param>
-    private static async Task<string?> InstallAsync(XamlRoot? root, AppServices app, string file, string? from = null)
+    /// <param name="source">the link it came from, when not from this PC</param>
+    private static async Task<string?> InstallAsync(XamlRoot? root, AppServices app, string file, Uri? source = null)
     {
         try
         {
@@ -100,9 +141,10 @@ public static class PluginInstall
                 return null;
             }
             var title = before is null ? $"Install {manifest.Name}?" : $"Replace {manifest.Name} {before.Stored.Manifest.Version} with {manifest.Version}?";
-            if (!await Dialogs.ConfirmAsync(root, title, Facts(package, before, from), before is null ? "Install" : "Replace", "Cancel", primaryIsDefault: false))
+            if (!await Dialogs.ConfirmAsync(root, title, Facts(package, before, source?.Host), before is null ? "Install" : "Replace", "Cancel", primaryIsDefault: false))
                 return null;
-            await Task.Run(() => app.Installed.Install(package, file));
+            await Task.Run(() => app.Installed.Install(package, file, source));
+            app.PluginUpdates.Forget(manifest.Id);
             await TakeEffectAsync(app);
             return manifest.Name;
         }
@@ -125,6 +167,7 @@ public static class PluginInstall
         try
         {
             app.Installed.Remove(installed);
+            app.PluginUpdates.Forget(installed.Stored.Manifest.Id);
             await TakeEffectAsync(app);
             return true;
         }

@@ -26,6 +26,9 @@ public sealed partial class PluginOptionsPage : Page
     {
         InitializeComponent();
         _rows = new SettingRows(_app, Header.ShowProblem, Build);
+        // an update found while the page is open shows on it
+        Loaded += (_, _) => _app.PluginUpdates.Changed += Build;
+        Unloaded += (_, _) => _app.PluginUpdates.Changed -= Build;
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -122,7 +125,7 @@ public sealed partial class PluginOptionsPage : Page
         return SettingRows.Card(secret.Title, secret.Help, controls);
     }
 
-    /// <summary>Whose an installed plugin is, how it does on the server, and the way to take it off again.</summary>
+    /// <summary>Whose an installed plugin is, how it does on the server, where a newer one is looked for, and the ways to update it and take it off.</summary>
     private Border InstalledCard(InstalledPlugin installed)
     {
         var (manifest, package) = (installed.Stored.Manifest, installed.Stored.Package);
@@ -130,13 +133,36 @@ public sealed partial class PluginOptionsPage : Page
         var onServer = _app.Queue.ServerPlugins.FirstOrDefault(plugin => plugin.Id == manifest.Id)?.Problem is { } problem
             ? $" Your server couldn't run it: {problem}"
             : "";
+        var source = PluginUpdates.Source(installed);
+        var updates = source is null ? " No updates are looked for, as it didn't come from a GitHub release."
+            : $" Updates are looked for among the releases of {source.Owner}/{source.Repo}.";
+
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        if (_app.PluginUpdates.For(installed) is { } update)
+        {
+            var get = new Button { Content = $"Update to {update.Version}", Style = (Style)Application.Current.Resources["AccentButtonStyle"] };
+            get.Click += async (_, _) =>
+            {
+                if (await PluginInstall.UpdateAsync(XamlRoot, _app, update))
+                    App.Window?.ShowPlugin(manifest.Name);
+            };
+            buttons.Children.Add(get);
+        }
+        if (source is not null && _app.Secrets.Has(source.TokenSecret))
+        {
+            var forget = new Button { Content = "Forget token", Style = (Style)Application.Current.Resources["SubtleButtonStyle"] };
+            ToolTipService.SetToolTip(forget, $"Remove the GitHub access token kept for {source.Owner}/{source.Repo}. Ferry asks for one again at the next update.");
+            forget.Click += (_, _) => ChangeSecret(() => _app.Secrets.Delete(source.TokenSecret));
+            buttons.Children.Add(forget);
+        }
         var remove = new Button { Content = "Remove" };
         remove.Click += async (_, _) =>
         {
             if (await PluginInstall.RemoveAsync(XamlRoot, _app, installed))
                 App.Window?.ShowPlugins();
         };
-        return SettingRows.Card($"Version {manifest.Version}, by {manifest.Publisher}", $"It runs on your server, never on this PC. It is {signed}.{onServer}", remove);
+        buttons.Children.Add(remove);
+        return SettingRows.Card($"Version {manifest.Version}, by {manifest.Publisher}", $"It runs on your server, never on this PC. It is {signed}.{updates}{onServer}", buttons);
     }
 
     /// <summary>What uses a secret reads it when the settings are read, so they are read again.</summary>

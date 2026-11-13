@@ -1,16 +1,35 @@
 using Ferry.Core.Settings;
 using Ferry.Plugins.Server;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 
 namespace Ferry.App.Services;
 
 /// <summary>Turning Server Support on or off, from whichever page asks.</summary>
 public static class ServerSwitch
 {
-    /// <summary>From a switch: a plugin is an option, so what turning it on adds is asked about first.</summary>
+    /// <summary>
+    /// From a switch. Turning it on asks first, and asks where downloads are to run from now on: on the server, or on this PC
+    /// as before, with the server there for when it is wanted. That can be changed any time, on its page.
+    /// </summary>
     /// <returns>whether it is now as asked</returns>
-    public static async Task<bool> ToggleAsync(XamlRoot? root, AppServices app, bool on) =>
-        (!on || await Dialogs.ConfirmAsync(root, "Add Server Support?", "Downloads can run on your own Linux server, even while this PC is off. Server joins the sidebar, and Ferry asks for the server next. Nothing is downloaded to add it.", "Add", "Not now")) && await SetAsync(root, app, on);
+    public static async Task<bool> ToggleAsync(XamlRoot? root, AppServices app, bool on)
+    {
+        if (!on)
+            return await SetAsync(root, app, on);
+        var where = await Dialogs.ChooseAsync(root, "Add Server Support?",
+            "Downloads can run on your own Linux server, even while this PC is off, and come here over SSH when they are done. Server joins the "
+            + "sidebar, and Ferry asks for the server next. Nothing is downloaded to add it.\n\nWhere should downloads run from now on? You can "
+            + "change this any time on Server Support's page.",
+            "On my server", "On this PC", () => true);
+        if (where == ContentDialogResult.None || !await SetAsync(root, app, on))
+            return false;
+        // set by the environment, it stays as it is there, and the page says so
+        if (app.Settings[ServerKeys.Mode].Source != SettingSource.Environment
+            && await SetModeAsync(root, app, server: where == ContentDialogResult.Primary) is { } problem)
+            await Dialogs.ShowErrorAsync(root, "Where downloads run wasn't changed", problem);
+        return true;
+    }
 
     /// <summary>Turn it on or off; off while files are on the server says first what happens to them, and nothing is deleted.</summary>
     /// <returns>whether it is now as asked</returns>

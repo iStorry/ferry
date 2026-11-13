@@ -43,9 +43,10 @@ public sealed class InstalledPlugins(PluginStore store)
     public InstalledPlugin? Find(string id) => _plugins.FirstOrDefault(installed => installed.Stored.Manifest.Id == id);
 
     /// <summary>Keep <paramref name="package"/> and put it among the plugins, in place of the build of it installed before.</summary>
+    /// <param name="source">the link it came from, where a newer one is looked for; null for a file</param>
     /// <exception cref="PluginException">it would take the place of another plugin; nothing changed</exception>
     /// <exception cref="IOException">it can't be kept; nothing changed</exception>
-    public InstalledPlugin Install(PluginPackage package, string file)
+    public InstalledPlugin Install(PluginPackage package, string file, Uri? source = null)
     {
         var before = Find(package.Manifest.Id);
         if (before is not null)
@@ -55,7 +56,7 @@ public sealed class InstalledPlugins(PluginStore store)
         {
             if (!OfficialSites.TryAdd(plugin, out var reason))
                 throw new PluginException(reason);
-            var installed = new InstalledPlugin(store.Add(package, file), plugin);
+            var installed = new InstalledPlugin(store.Add(package, file, source), plugin);
             _plugins.Remove(before!);
             _plugins.Add(installed);
             return installed;

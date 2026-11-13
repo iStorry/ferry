@@ -82,5 +82,6 @@ public sealed class SitePlugin(string name, SettingKey enabled)
             ? Sites(context).Select(site => new SiteEntry(site, IsOn(context.Settings)))
             : [];
 
-    public void Register() => SettingKey.Contribute([enabled, .. Options]);
+    /// <param name="again">it was here before and removed: its settings as they are now take the place of those it had</param>
+    public void Register(bool again = false) => SettingKey.Contribute([enabled, .. Options], replace: again);
 }

@@ -32,6 +32,8 @@ public sealed partial class PluginsPage : Page
         {
             _app.SettingsChanged += Build;
             _app.Queue.StatusChanged += Build;
+            _app.PluginUpdates.Changed += Build;
+            _ = _app.PluginUpdates.CheckAsync();
             AddButton.Visibility = _app.IsDecoy ? Visibility.Collapsed : Visibility.Visible;
             Build();
             ShowChosen();
@@ -40,6 +42,7 @@ public sealed partial class PluginsPage : Page
         {
             _app.SettingsChanged -= Build;
             _app.Queue.StatusChanged -= Build;
+            _app.PluginUpdates.Changed -= Build;
         };
         ActualThemeChanged += (_, _) => Build();
     }
@@ -260,6 +263,8 @@ public sealed partial class PluginsPage : Page
     /// <summary>How an installed plugin that is on stands: it runs on the server, so that is where to look.</summary>
     private (string Words, string Tone) OnServer(InstalledPlugin package)
     {
+        if (_app.PluginUpdates.For(package) is { } update)
+            return ($"Update available · {update.Version}", ThemeBrushes.Accent);
         if (_app.Settings.Mode != DownloadMode.Server)
             return ("Needs your server", ThemeBrushes.Caution);
         var id = package.Stored.Manifest.Id;
