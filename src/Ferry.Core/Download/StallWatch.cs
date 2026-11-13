@@ -45,6 +45,11 @@ internal sealed class StallWatch(TimeSpan timeout, Stage stage, CancellationToke
         {
             throw Stalled();
         }
+        // the read this watch gave up on can also end as a broken connection, not as a cancelled read: it is a stall all the same
+        catch (IOException) when (_source.IsCancellationRequested && !tryCancel.IsCancellationRequested)
+        {
+            throw Stalled();
+        }
         catch (IOException e)
         {
             throw new StageException(stage, $"The connection dropped: {e.Message}", isRetryable: true, inner: e);
