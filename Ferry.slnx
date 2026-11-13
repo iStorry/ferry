@@ -1,0 +1,37 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Ferry.App/Ferry.App.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="src/Ferry.Agent/Ferry.Agent.csproj" />
+    <Project Path="src/Ferry.Core/Ferry.Core.csproj" />
+    <Project Path="src/Ferry.Plugins.AfterDownload/Ferry.Plugins.AfterDownload.csproj" />
+    <Project Path="src/Ferry.Plugins.BrowserLink/Ferry.Plugins.BrowserLink.csproj" />
+    <Project Path="src/Ferry.Plugins.CloudLinks/Ferry.Plugins.CloudLinks.csproj" />
+    <Project Path="src/Ferry.Plugins.Debrid/Ferry.Plugins.Debrid.csproj" />
+    <Project Path="src/Ferry.Plugins.DevReleases/Ferry.Plugins.DevReleases.csproj" />
+    <Project Path="src/Ferry.Plugins.Feeds/Ferry.Plugins.Feeds.csproj" />
+    <Project Path="src/Ferry.Plugins.FileHosts/Ferry.Plugins.FileHosts.csproj" />
+    <Project Path="src/Ferry.Plugins.FileServers/Ferry.Plugins.FileServers.csproj" />
+    <Project Path="src/Ferry.Plugins.Folders/Ferry.Plugins.Folders.csproj" />
+    <Project Path="src/Ferry.Plugins.MediaSites/Ferry.Plugins.MediaSites.csproj" />
+    <Project Path="src/Ferry.Plugins.Mega/Ferry.Plugins.Mega.csproj" />
+    <Project Path="src/Ferry.Plugins.Notifications/Ferry.Plugins.Notifications.csproj" />
+    <Project Path="src/Ferry.Plugins.Official/Ferry.Plugins.Official.csproj" />
+    <Project Path="src/Ferry.Plugins.OpenDirectories/Ferry.Plugins.OpenDirectories.csproj" />
+    <Project Path="src/Ferry.Plugins.RemoteQueues/Ferry.Plugins.RemoteQueues.csproj" />
+    <Project Path="src/Ferry.Plugins.Torrents/Ferry.Plugins.Torrents.csproj" />
+    <Project Path="src/Ferry.Plugins.VideoStreams/Ferry.Plugins.VideoStreams.csproj" />
+    <Project Path="src/Ferry.Plugins.Server/Ferry.Plugins.Server.csproj" />
+    <Project Path="src/Ferry.Plugins.Host/Ferry.Plugins.Host.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/Ferry.Plugins.Sample/Ferry.Plugins.Sample.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Ferry.PluginPack/Ferry.PluginPack.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Ferry.Core.Tests/Ferry.Core.Tests.csproj" />
+  </Folder>
+</Solution>

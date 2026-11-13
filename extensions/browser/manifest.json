@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Ferry Browser Link",
+  "version": "1.0.0",
+  "description": "Download with Ferry: sends a link you choose to the Ferry app, with this browser's cookies for that link's site.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAssaOtOKk4ytGI1NPGJ/fCCyku+EvA8kc0T16DcHpFLEFyqpWBuRY5DAWibXe/TJ83vCzefnewurG63v/FPKCnfyd0uXj45ECrkWdBze8okt/8vqNI9wAknIz8ZhmWQTPn0qNOX8KoCsLyvyfeWFg1qfcW9EboT5b3YZ4nPmOQXWWjjxoB61HAHOF7DZV7mOKra/B4TRJNIMu74FSVxf3yxIUaUzNzJ4iondC8BlD6U0e2bnu4NHjM6+g/Dxz8DZ1le9FvAYw5lD0g3ZM5TivU3vuXQNK5kuE8Vop0wdemkX+syk1jslzW9P6Hn9fTKR1D62PoYLzJkD5zhDdzvu9ywIDAQAB",
+  "icons": { "128": "icons/icon128.png" },
+  "permissions": ["contextMenus", "cookies", "nativeMessaging"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": { "service_worker": "background.js" }
+}

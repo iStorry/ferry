@@ -1,0 +1,119 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      # Windows builds everything, the WinUI app too; Linux builds Core, the plugins, the CLI and the tests
+      - name: Build, format, test (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          dotnet build Ferry.slnx -c Release
+          dotnet format Ferry.slnx --verify-no-changes
+          dotnet test Ferry.slnx -c Release --no-build
+      - name: Build, format, test (Linux)
+        if: runner.os != 'Windows'
+        run: |
+          dotnet build tests/Ferry.Core.Tests -c Release
+          dotnet format tests/Ferry.Core.Tests/Ferry.Core.Tests.csproj --verify-no-changes
+          dotnet test tests/Ferry.Core.Tests -c Release --no-build
+      # what belongs to a plugin kept elsewhere never comes in here, by name either
+      - name: No private names
+        if: runner.os != 'Windows'
+        run: sh tools/check-names.sh
+
+  # The published Linux agent with a plugin installed: what no test on the PC alone can show, as a plugin's code is
+  # loaded there and nowhere else.
+  agent:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Publish the Linux agent
+        run: sh tools/publish-cli.sh linux-x64
+      - name: Pack the sample plugin
+        run: |
+          dotnet build samples/Ferry.Plugins.Sample -c Release
+          dotnet run --project tools/Ferry.PluginPack -c Release -- samples/Ferry.Plugins.Sample/bin/Release/net10.0/Ferry.Plugins.Sample.dll --out artifacts/plugins
+      - name: The agent loads it and asks it about a link
+        run: sh tools/check-agent-plugin.sh artifacts/cli/ferry-linux-x64 artifacts/plugins/ferry.sample-*.ferryplugin
+
+  # The Windows app published and started, and its setup built, so installer/ferry.iss is checked before a release.
+  app:
+    needs: test
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Publish and smoke-test the app
+        shell: pwsh
+        run: ./tools/publish-app.ps1 -Rid win-x64 -SmokeTest
+      - name: Inno Setup
+        shell: pwsh
+        run: if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup --no-progress -y }
+      - name: Build the setup
+        shell: pwsh
+        run: ./installer/build.ps1 -Version 0.0.0 -SkipPublish
+
+  # Native AOT doesn't cross-compile between operating systems, so Windows builds its own; the Linux builds are single
+  # files that cross-build (see tools/publish-cli.sh), both on x64.
+  cli:
+    needs: test
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { rid: win-x64, os: windows-latest }
+          - { rid: win-arm64, os: windows-latest }
+          - { rid: linux-x64, os: ubuntu-latest }
+          - { rid: linux-arm64, os: ubuntu-latest }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Publish (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/publish-cli.ps1 -Rid ${{ matrix.rid }}
+      - name: Publish (Linux)
+        if: runner.os != 'Windows'
+        run: sh tools/publish-cli.sh ${{ matrix.rid }}
+      # only what this runner can run: not win-arm64 or linux-arm64 on x64
+      - name: Smoke test
+        if: matrix.rid == 'win-x64' || matrix.rid == 'linux-x64'
+        shell: bash
+        run: |
+          bin=$(ls artifacts/cli/ferry-${{ matrix.rid }}*)
+          "$bin" --version
+          "$bin" --help > /dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ferry-${{ matrix.rid }}
+          path: artifacts/cli/

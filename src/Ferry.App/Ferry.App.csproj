@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <AssemblyName>Ferry</AssemblyName>
+    <RootNamespace>Ferry.App</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(PROCESSOR_ARCHITECTURE)' == 'ARM64'">win-arm64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <!-- unpackaged and self-contained (D4): no MSIX, no Windows App SDK runtime to install -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>true</SelfContained>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <!-- Program.cs has Main: one instance, and links passed on to it -->
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
+    <!-- LibraryImport (source-generated P/Invoke) for the taskbar, the window's DPI and single instance -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- the parts of Windows App SDK 1.8 the app uses; the meta-package would add AI, ML and Widgets
+         (onnxruntime, DirectML: about 40 MB) that Ferry never calls -->
+    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="1.8.260803003" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Foundation" Version="1.8.260803002" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.InteractiveExperiences" Version="1.8.260708001" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Base" Version="1.8.251216001" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.DWrite" Version="1.8.25122902" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- server mode uploads these to the server: from tools/publish-agent.ps1 here, tools/publish-cli.sh in a release -->
+    <None Include="..\..\artifacts\cli\ferry-linux-*" Link="agent\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Browser Link: the extension people load into Chrome or Edge from beside the app -->
+    <Content Include="..\..\extensions\browser\**" Link="extension\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Ferry.Core\Ferry.Core.csproj" />
+    <ProjectReference Include="..\Ferry.Plugins.Official\Ferry.Plugins.Official.csproj" />
+    <ProjectReference Include="..\Ferry.Plugins.Server\Ferry.Plugins.Server.csproj" />
+    <ProjectReference Include="..\Ferry.Plugins.Torrents\Ferry.Plugins.Torrents.csproj" />
+  </ItemGroup>
+
+</Project>

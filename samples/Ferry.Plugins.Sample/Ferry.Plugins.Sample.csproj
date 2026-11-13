@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Ferry has its own Ferry.Core, so a plugin's package doesn't carry one -->
+    <ProjectReference Include="..\..\src\Ferry.Core\Ferry.Core.csproj" Private="false" />
+  </ItemGroup>
+
+</Project>

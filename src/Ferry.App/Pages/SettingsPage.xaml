@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Ferry.App.Pages.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    SizeChanged="OnSizeChanged">
+    <!-- docs/mocks/settings.html: the sections on the left, one at a time on the right -->
+    <Grid x:Name="PageLayout">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="SubnavColumn" Width="208" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition x:Name="SubnavRow" Height="0" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Border x:Name="SubnavPanel" Grid.RowSpan="2" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,1,0">
+            <ScrollViewer x:Name="SubnavScroller" VerticalScrollBarVisibility="Auto">
+                <StackPanel x:Name="SubnavBody" Padding="12,24,12,12">
+                    <TextBlock x:Name="SubnavTitle" Text="Settings" Style="{StaticResource HeadingStyle}" Margin="8,0,0,12" />
+                    <AutoSuggestBox x:Name="FindBox" PlaceholderText="Find a setting" QueryIcon="Find" Margin="0,0,0,10" UpdateTextOnSelect="False"
+                                    AutomationProperties.Name="Find a setting" TextChanged="OnFindChanged" QuerySubmitted="OnFindSubmitted" />
+                    <StackPanel x:Name="SubnavItems" Spacing="2">
+                        <RadioButton Tag="Downloads" Click="OnSubnav" Style="{StaticResource SubnavItemStyle}" AutomationProperties.Name="Downloads">
+                            <StackPanel Orientation="Horizontal" Spacing="10"><FontIcon Glyph="&#xE896;" FontSize="15" /><TextBlock Text="Downloads" /></StackPanel>
+                        </RadioButton>
+                        <RadioButton Tag="Schedule" Click="OnSubnav" Style="{StaticResource SubnavItemStyle}" AutomationProperties.Name="Schedule">
+                            <StackPanel Orientation="Horizontal" Spacing="10"><FontIcon Glyph="&#xE787;" FontSize="15" /><TextBlock Text="Schedule" /></StackPanel>
+                        </RadioButton>
+                        <RadioButton Tag="Adding" Click="OnSubnav" Style="{StaticResource SubnavItemStyle}" AutomationProperties.Name="Adding links">
+                            <StackPanel Orientation="Horizontal" Spacing="10"><FontIcon Glyph="&#xE71B;" FontSize="15" /><TextBlock Text="Adding links" /></StackPanel>
+                        </RadioButton>
+                        <RadioButton Tag="Appearance" Click="OnSubnav" Style="{StaticResource SubnavItemStyle}" AutomationProperties.Name="Appearance">
+                            <StackPanel Orientation="Horizontal" Spacing="10"><FontIcon Glyph="&#xE790;" FontSize="15" /><TextBlock Text="Appearance" /></StackPanel>
+                        </RadioButton>
+                        <RadioButton Tag="Behaviour" Click="OnSubnav" Style="{StaticResource SubnavItemStyle}" AutomationProperties.Name="Behaviour">
+                            <StackPanel Orientation="Horizontal" Spacing="10"><FontIcon Glyph="&#xE713;" FontSize="15" /><TextBlock Text="Behaviour" /></StackPanel>
+                        </RadioButton>
+                        <RadioButton Tag="Lock" Click="OnSubnav" Style="{StaticResource SubnavItemStyle}" AutomationProperties.Name="App lock">
+                            <StackPanel Orientation="Horizontal" Spacing="10"><FontIcon Glyph="&#xE72E;" FontSize="15" /><TextBlock Text="App lock" /></StackPanel>
+                        </RadioButton>
+                        <RadioButton Tag="Advanced" Click="OnSubnav" Style="{StaticResource SubnavItemStyle}" AutomationProperties.Name="Advanced">
+                            <StackPanel Orientation="Horizontal" Spacing="10"><FontIcon Glyph="&#xE756;" FontSize="15" /><TextBlock Text="Advanced" /></StackPanel>
+                        </RadioButton>
+                    </StackPanel>
+                    <Rectangle x:Name="SubnavLine" Height="1" Margin="4,8" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                    <StackPanel x:Name="SubnavLinks" Spacing="2">
+                        <Button Style="{StaticResource SubtleButtonStyle}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Height="34" Padding="10,0"
+                                Click="OnOpenPlugins" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                            <StackPanel Orientation="Horizontal" Spacing="10"><FontIcon Glyph="&#xEA86;" FontSize="15" /><TextBlock Text="Plugins" FontSize="13.5" /></StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource SubtleButtonStyle}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Height="34" Padding="10,0"
+                                Click="OnOpenAbout" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                            <StackPanel Orientation="Horizontal" Spacing="10"><FontIcon Glyph="&#xE946;" FontSize="15" /><TextBlock Text="About" FontSize="13.5" /></StackPanel>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <ScrollViewer x:Name="ContentScroller" Grid.Column="1" Grid.RowSpan="2">
+            <StackPanel x:Name="ContentArea" Padding="{StaticResource PagePadding}" HorizontalAlignment="Left">
+                <InfoBar x:Name="Problem" Visibility="{x:Bind Problem.IsOpen, Mode=OneWay}" IsClosable="True" IsOpen="False" Severity="Error" Margin="0,0,0,12" />
+                <StackPanel x:Name="Section" />
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>

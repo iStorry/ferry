@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Ferry.App.Pages.ServerPluginPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:pages="using:Ferry.App.Pages"
+    xmlns:services="using:Ferry.App.Services"
+    SizeChanged="OnSizeChanged">
+    <!-- docs/mocks/plugins.html, Server Support: where downloads happen, your server, and bringing files here -->
+    <ScrollViewer>
+        <StackPanel x:Name="PageLayout" Padding="{StaticResource PagePadding}" Spacing="4">
+            <pages:PluginHeader x:Name="Header" Title="Server Support" Glyph="&#xE839;" Toggled="OnToggled" />
+
+            <StackPanel x:Name="WhereGroup" Spacing="4">
+                <TextBlock Text="Where downloads happen" Style="{StaticResource SectionHeaderStyle}" />
+                <Border Style="{StaticResource CardStyle}">
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock x:Name="ModeTitle" TextWrapping="Wrap" />
+                            <TextBlock x:Name="ModeDetail" Style="{StaticResource CaptionMutedStyle}" />
+                        </StackPanel>
+                        <Border x:Name="ModeChoiceHost" Grid.Column="1" VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+            </StackPanel>
+
+            <TextBlock Text="Your server" Style="{StaticResource SectionHeaderStyle}" />
+            <Border Style="{StaticResource SetCardStyle}"><StackPanel x:Name="ServerSection" /></Border>
+
+            <StackPanel x:Name="AdvancedGroup" Spacing="4">
+                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="0" Margin="0,16,0,0">
+                    <Expander.Header>
+                        <StackPanel Padding="0,10">
+                            <TextBlock Text="Advanced: SSH and the agent" />
+                            <TextBlock Text="The folder on the server, keepalive, the OpenSSH client" Style="{StaticResource CaptionMutedStyle}" />
+                        </StackPanel>
+                    </Expander.Header>
+                    <StackPanel x:Name="AdvancedRows" />
+                </Expander>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

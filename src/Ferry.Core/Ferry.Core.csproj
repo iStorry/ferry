@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsAotCompatible>true</IsAotCompatible>
+    <!-- LibraryImport (source-generated P/Invoke, AOT-safe): the Windows Downloads folder -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- DPAPI, for a login key's passphrase on Windows -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Ferry.Core.Tests" />
+    <!-- bringing a file over is the same segmented work as downloading one, and shares its parts -->
+    <InternalsVisibleTo Include="Ferry.Plugins.Server" />
+  </ItemGroup>
+
+</Project>

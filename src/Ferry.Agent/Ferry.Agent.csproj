@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>ferry</AssemblyName>
+    <RootNamespace>Ferry.Agent</RootNamespace>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <StripSymbols>true</StripSymbols>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <!-- LibraryImport (source-generated P/Invoke) for kill() and the Windows console mode -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" Version="2.0.12" />
+  </ItemGroup>
+
+  <!--
+    The server's agent (publish-agent.ps1, publish-cli.sh): not Native AOT and not trimmed, so it can carry the torrent
+    engine and load the plugins people install, which need the whole framework to be there.
+  -->
+  <PropertyGroup Condition="'$(ServerAgent)' == 'true'">
+    <PublishAot>false</PublishAot>
+    <DefineConstants>$(DefineConstants);SERVER_AGENT</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(ServerAgent)' == 'true'">
+    <ProjectReference Include="..\Ferry.Plugins.Torrents\Ferry.Plugins.Torrents.csproj" />
+    <ProjectReference Include="..\Ferry.Plugins.Host\Ferry.Plugins.Host.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(ServerAgent)' != 'true'">
+    <Compile Remove="ServerPlugins.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Ferry.Core\Ferry.Core.csproj" />
+    <ProjectReference Include="..\Ferry.Plugins.Official\Ferry.Plugins.Official.csproj" />
+    <ProjectReference Include="..\Ferry.Plugins.Server\Ferry.Plugins.Server.csproj" />
+  </ItemGroup>
+
+</Project>

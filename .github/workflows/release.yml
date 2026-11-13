@@ -1,0 +1,170 @@
+name: release
+
+# Push a tag such as v0.2.0 to publish: the app's setup and portable zip, the agent for each Linux, and SHA256SUMS.txt.
+# Only plain vX.Y.Z tags: the updater and the agent download look files up by that version.
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
+
+permissions:
+  contents: read
+
+jobs:
+  # the same checks as CI, so a tag on a commit that doesn't pass publishes nothing
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: The tag is a plain version
+        shell: bash
+        run: |
+          [[ "${GITHUB_REF_NAME#v}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::$GITHUB_REF_NAME is not vX.Y.Z"; exit 1; }
+          grep -qxE "## ${GITHUB_REF_NAME#v}( \(pre-release\))?" CHANGELOG.md || { echo "::error::CHANGELOG.md has no '## ${GITHUB_REF_NAME#v}' section"; exit 1; }
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Build, format, test
+        run: |
+          dotnet build Ferry.slnx -c Release
+          dotnet format Ferry.slnx --verify-no-changes
+          dotnet test Ferry.slnx -c Release --no-build
+
+  cli:
+    needs: test
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { rid: win-x64, os: windows-latest }
+          - { rid: win-arm64, os: windows-latest }
+          # single files that cross-build (see tools/publish-cli.sh), so both come from x64
+          - { rid: linux-x64, os: ubuntu-latest }
+          - { rid: linux-arm64, os: ubuntu-latest }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Version from the tag
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+      - name: Publish (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/publish-cli.ps1 -Rid ${{ matrix.rid }} -Version $env:VERSION
+      - name: Publish (Linux)
+        if: runner.os != 'Windows'
+        run: sh tools/publish-cli.sh ${{ matrix.rid }} "$VERSION"
+      # only what this runner can run: not win-arm64 or linux-arm64 on x64
+      - name: Smoke test
+        if: matrix.rid == 'win-x64' || matrix.rid == 'linux-x64'
+        shell: bash
+        run: |
+          bin=$(ls artifacts/cli/ferry-${{ matrix.rid }}*)
+          "$bin" --version | grep -F "$VERSION"
+          "$bin" --help > /dev/null
+      - name: Archive
+        shell: bash
+        run: |
+          mkdir -p dist staging
+          if [[ "${{ matrix.rid }}" == win-* ]]; then
+            cp "artifacts/cli/ferry-${{ matrix.rid }}.exe" staging/ferry.exe
+            (cd staging && 7z a "../dist/ferry-$VERSION-${{ matrix.rid }}.zip" ferry.exe > /dev/null)
+          else
+            cp "artifacts/cli/ferry-${{ matrix.rid }}" staging/ferry
+            chmod +x staging/ferry
+            tar -czf "dist/ferry-$VERSION-${{ matrix.rid }}.tar.gz" -C staging ferry
+          fi
+      # the raw Linux builds go next to the Windows app, for server mode to upload
+      - uses: actions/upload-artifact@v4
+        if: startsWith(matrix.rid, 'linux-')
+        with:
+          name: agent-${{ matrix.rid }}
+          path: artifacts/cli/ferry-${{ matrix.rid }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.rid }}
+          path: dist/
+
+  app:
+    needs: cli
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Version from the tag
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v4
+        with:
+          name: cli-win-x64
+          path: cli-archive
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: agent-*
+          path: artifacts/cli
+          merge-multiple: true
+      - name: The native CLI for the app's cli folder
+        shell: pwsh
+        run: |
+          Expand-Archive "cli-archive/ferry-$env:VERSION-win-x64.zip" -DestinationPath cli-archive/x
+          Copy-Item cli-archive/x/ferry.exe artifacts/cli/ferry-win-x64.exe
+      - name: Publish and smoke-test the app
+        shell: pwsh
+        run: ./tools/publish-app.ps1 -Rid win-x64 -Version $env:VERSION -Prebuilt -SmokeTest
+      - name: Inno Setup
+        shell: pwsh
+        run: if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup --no-progress -y }
+      - name: Setup and portable zip
+        shell: pwsh
+        run: |
+          ./installer/build.ps1 -Version $env:VERSION -SkipPublish
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item "artifacts/installer/Ferry-$env:VERSION-setup.exe" dist/
+          # "-portable": GitHub compares asset names without case, so "Ferry-…-win-x64.zip" would clash with the CLI's
+          Compress-Archive -Path artifacts/publish/app-win-x64/* -DestinationPath "dist/Ferry-$env:VERSION-win-x64-portable.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app
+          path: dist/
+
+  release:
+    needs: [cli, app]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: cli-*
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          name: app
+      - name: Checksums and notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          # the Windows helper is in the app's setup and zip; nobody runs it by hand, so it isn't a download of its own
+          rm -f dist/ferry-*-win-*.zip
+          (cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          # the CHANGELOG section for this version (the test job checked it is there); "## 1.1.0 (pre-release)" makes it
+          # a pre-release, which the app's update check (GitHub's latest release) doesn't offer
+          heading=$(grep -xE "## ${version}( \(pre-release\))?" CHANGELOG.md | head -n 1)
+          awk -v h="$heading" '$0==h{f=1;next} /^## /{if(f)exit} f' CHANGELOG.md > notes.md
+          [ -s notes.md ] || { echo "::error::the CHANGELOG section for $version is empty"; exit 1; }
+          if [[ "$heading" == *"(pre-release)" ]]; then echo "PRERELEASE=--prerelease" >> "$GITHUB_ENV"; fi
+          printf '\nChecksums: SHA256SUMS.txt. The app updates itself; the .tar.gz files are the server's agent, which the app fetches when it needs one.\n' >> notes.md
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "Ferry ${GITHUB_REF_NAME#v}" --notes-file notes.md --verify-tag $PRERELEASE

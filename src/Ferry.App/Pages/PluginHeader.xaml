@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Ferry.App.Pages.PluginHeader"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:services="using:Ferry.App.Services">
+    <!-- docs/mocks/plugins.html: the top of every plugin's page: the way back, what went wrong, and its tile, name and switch -->
+    <StackPanel Spacing="4">
+        <Button x:Name="BackButton" Click="OnBack" Style="{StaticResource SubtleButtonStyle}" Padding="8,4" Margin="-8,0,0,12" AutomationProperties.Name="Back to Plugins">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <FontIcon Glyph="&#xE72B;" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <TextBlock Text="Plugins" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+        </Button>
+        <InfoBar x:Name="Problem" Visibility="{x:Bind Problem.IsOpen, Mode=OneWay}" IsClosable="True" IsOpen="False" Severity="Error" Margin="0,0,0,8" />
+
+        <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Border x:Name="Tile" Width="56" Height="56" CornerRadius="16" VerticalAlignment="Center">
+                <FontIcon x:Name="TileIcon" FontSize="24" />
+            </Border>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                <TextBlock x:Name="Heading" Style="{StaticResource HeadingStyle}" FontSize="24" TextTrimming="CharacterEllipsis" />
+                <TextBlock x:Name="Summary" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                <services:WrapRow x:Name="Facts" x:FieldModifier="public" Spacing="6" Margin="0,6,0,0" />
+            </StackPanel>
+            <services:LabeledSwitch x:Name="Toggle" x:FieldModifier="public" Grid.Column="2" VerticalAlignment="Center" />
+        </Grid>
+    </StackPanel>
+</UserControl>

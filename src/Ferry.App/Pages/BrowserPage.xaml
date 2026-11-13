@@ -1,0 +1,672 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Ferry.App.Pages.BrowserPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Ferry.App.ViewModels"
+    xmlns:services="using:Ferry.App.Services"
+    NavigationCacheMode="Required" KeyboardAcceleratorPlacementMode="Hidden">
+    <!-- kept while other pages show: coming back finds the album open where it was, its reads carried on -->
+
+    <Page.KeyboardAccelerators>
+        <KeyboardAccelerator Modifiers="Control" Key="F" Invoked="OnFindAccelerator" />
+        <KeyboardAccelerator Modifiers="Menu" Key="Left" Invoked="OnBackAccelerator" />
+    </Page.KeyboardAccelerators>
+
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <!-- a gradient can't take a brush as a stop, so the fade has LayerFillColorDefaultBrush's colour itself -->
+                <!-- a toggle that is on (Watching, a filter) is a quiet fill: nothing about it is moving, so no accent -->
+                <ResourceDictionary x:Key="Default">
+                    <LinearGradientBrush x:Key="BannerFadeBrush" StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#0014181D" Offset="0" />
+                        <GradientStop Color="#FF14181D" Offset="1" />
+                    </LinearGradientBrush>
+                    <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="#1AFFFFFF" />
+                    <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="#24FFFFFF" />
+                    <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="#14FFFFFF" />
+                    <SolidColorBrush x:Key="ToggleButtonForegroundChecked" Color="#F3F5F7" />
+                    <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPointerOver" Color="#F3F5F7" />
+                    <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPressed" Color="#F3F5F7" />
+                    <SolidColorBrush x:Key="ToggleButtonBorderBrushChecked" Color="#24FFFFFF" />
+                    <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPointerOver" Color="#24FFFFFF" />
+                    <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPressed" Color="#24FFFFFF" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <LinearGradientBrush x:Key="BannerFadeBrush" StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#00F8F9FA" Offset="0" />
+                        <GradientStop Color="#FFF8F9FA" Offset="1" />
+                    </LinearGradientBrush>
+                    <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="#1410141A" />
+                    <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="#1A10141A" />
+                    <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="#0F10141A" />
+                    <SolidColorBrush x:Key="ToggleButtonForegroundChecked" Color="#12161B" />
+                    <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPointerOver" Color="#12161B" />
+                    <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPressed" Color="#12161B" />
+                    <SolidColorBrush x:Key="ToggleButtonBorderBrushChecked" Color="#2610141A" />
+                    <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPointerOver" Color="#2610141A" />
+                    <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPressed" Color="#2610141A" />
+                </ResourceDictionary>
+                <!-- high contrast: no picture behind the text, and toggles as the system has them -->
+                <ResourceDictionary x:Key="HighContrast">
+                    <SolidColorBrush x:Key="BannerFadeBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
+            <!-- a filter in the tools row: only text until the pointer is on it -->
+            <Style x:Key="QuietButtonStyle" TargetType="Button" BasedOn="{StaticResource SubtleButtonStyle}">
+                <Setter Property="Height" Value="32" />
+                <Setter Property="Padding" Value="10,0" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            </Style>
+
+            <Style x:Key="QuietToggleStyle" TargetType="ToggleButton" BasedOn="{StaticResource DefaultToggleButtonStyle}">
+                <Setter Property="Height" Value="32" />
+                <Setter Property="Padding" Value="10,0" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            </Style>
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <Grid>
+        <GridView
+            x:Name="List"
+            ItemsSource="{x:Bind Files}"
+            SelectionMode="Multiple"
+            Padding="26,0,26,96"
+            IsItemClickEnabled="False"
+            SelectionChanged="OnSelectionChanged"
+            SizeChanged="OnFileGridSizeChanged">
+            <GridView.ItemContainerStyle>
+                <!-- a tile's chrome: its tick top-left, and an outline in ink round its picture when selected. Its rows are those of the tile (ItemTemplate) -->
+                <Style TargetType="GridViewItem" BasedOn="{StaticResource DefaultGridViewItemStyle}">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="Margin" Value="6" />
+                    <Setter Property="MinWidth" Value="0" />
+                    <Setter Property="MinHeight" Value="0" />
+                    <Setter Property="CornerRadius" Value="12" />
+                    <Setter Property="UseSystemFocusVisuals" Value="True" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="GridViewItem">
+                                <Grid Control.IsTemplateFocusTarget="True" Background="Transparent" CornerRadius="{TemplateBinding CornerRadius}">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="44" />
+                                    </Grid.RowDefinitions>
+                                    <VisualStateManager.VisualStateGroups>
+                                        <VisualStateGroup x:Name="CommonStates">
+                                            <VisualState x:Name="Normal" />
+                                            <VisualState x:Name="PointerOver" />
+                                            <VisualState x:Name="Pressed" />
+                                            <VisualState x:Name="Selected">
+                                                <VisualState.Setters>
+                                                    <Setter Target="Outline.Visibility" Value="Visible" />
+                                                    <Setter Target="TickOn.Visibility" Value="Visible" />
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                            <VisualState x:Name="PointerOverSelected">
+                                                <VisualState.Setters>
+                                                    <Setter Target="Outline.Visibility" Value="Visible" />
+                                                    <Setter Target="TickOn.Visibility" Value="Visible" />
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                            <VisualState x:Name="PressedSelected">
+                                                <VisualState.Setters>
+                                                    <Setter Target="Outline.Visibility" Value="Visible" />
+                                                    <Setter Target="TickOn.Visibility" Value="Visible" />
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                        </VisualStateGroup>
+                                    </VisualStateManager.VisualStateGroups>
+                                    <ContentPresenter x:Name="ContentPresenter" Grid.RowSpan="2"
+                                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                                    <Border x:Name="Outline" Visibility="Collapsed" IsHitTestVisible="False" CornerRadius="12" BorderThickness="2"
+                                            BorderBrush="{ThemeResource FerryInkBrush}" />
+                                    <!-- on a picture, so the same in both themes -->
+                                    <Border Width="22" Height="22" Margin="8" HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False"
+                                            CornerRadius="7" BorderThickness="1.5" Background="#52000000" BorderBrush="#D9FFFFFF" />
+                                    <Border x:Name="TickOn" Visibility="Collapsed" Width="22" Height="22" Margin="8" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                            IsHitTestVisible="False" CornerRadius="7" Background="White">
+                                        <FontIcon Glyph="&#xE73E;" FontSize="13" Foreground="#12161B" />
+                                    </Border>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </GridView.ItemContainerStyle>
+
+            <GridView.Header>
+                <!-- the cards' margins are 6, so what is 6 in from the grid's padding lines up with them at 32, as every page's edges do -->
+                <StackPanel x:Name="HeaderRoot" SizeChanged="OnHeaderSizeChanged">
+                    <!-- the page's heading; with a page open, the banner is its heading -->
+                    <StackPanel x:Name="Heading" Margin="6,24,6,20">
+                        <TextBlock Text="Browser" Style="{StaticResource HeadingStyle}" />
+                        <!-- where albums come from, and where they are read -->
+                        <TextBlock x:Name="WhereText" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                    </StackPanel>
+
+                    <!-- a page open: its cover, name and actions, scrolling away above its tools. It reaches the page's edges past the grid's padding (LayoutForWidth) -->
+                    <Grid x:Name="Result" Visibility="Collapsed" Margin="-26,0,-26,0">
+                        <!-- its cover again, or its colour, dimmed and fading into the page -->
+                        <Border x:Name="Backdrop" Opacity="0.3" IsHitTestVisible="False" />
+                        <Border Background="{ThemeResource BannerFadeBrush}" IsHitTestVisible="False" />
+                        <StackPanel x:Name="BannerBody" Padding="32,20,32,22">
+                            <!-- its text on the page's edge, as titles are: the button's own padding hangs outside it -->
+                            <Button Style="{StaticResource SubtleButtonStyle}" Click="OnClosePage" Height="28" Padding="6,0,10,0" Margin="-6,0,0,0"
+                                    AutomationProperties.Name="Back to the albums">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE72B;" FontSize="12" />
+                                    <TextBlock Text="Albums" FontSize="13" />
+                                </StackPanel>
+                            </Button>
+                            <Grid Margin="0,12,0,0" ColumnSpacing="20" RowSpacing="16">
+                                <!-- a narrow window puts the actions in the second row (LayoutForWidth) -->
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid x:Name="HeroCover" Width="132" Height="132" CornerRadius="14">
+                                    <TextBlock x:Name="HeroInitial" FontSize="52" FontWeight="SemiBold" Foreground="#E6FFFFFF"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    <Border x:Name="HeroPicture" CornerRadius="14" />
+                                </Grid>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Bottom">
+                                    <TextBlock x:Name="KindText" Style="{StaticResource CaptionMutedStyle}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                               ToolTipService.ToolTip="{x:Bind KindText.Text, Mode=OneWay}" />
+                                    <TextBlock x:Name="PageTitle" Style="{StaticResource HeadingStyle}" FontSize="32" LineHeight="40" TextTrimming="CharacterEllipsis"
+                                               TextWrapping="NoWrap" ToolTipService.ToolTip="{x:Bind PageTitle.Text, Mode=OneWay}" />
+                                    <!-- how many files, how large, what is new, and who read it (ShowFacts) -->
+                                    <services:WrapRow x:Name="PageFacts" Spacing="6" Margin="0,8,0,0" />
+                                </StackPanel>
+                                <StackPanel x:Name="HeroActions" Grid.Column="2" VerticalAlignment="Bottom" Spacing="8" MinWidth="196">
+                                    <Button x:Name="DownloadAllButton" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Stretch" Click="OnDownloadAll">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <FontIcon Glyph="&#xE896;" FontSize="14" />
+                                            <TextBlock x:Name="DownloadAllText" Text="Download all" />
+                                        </StackPanel>
+                                    </Button>
+                                    <ToggleButton x:Name="WatchButton" HorizontalAlignment="Stretch" Click="OnWatchToggled">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <FontIcon Glyph="&#xE7B3;" FontSize="14" />
+                                            <TextBlock x:Name="WatchText" />
+                                        </StackPanel>
+                                    </ToggleButton>
+                                    <TextBlock x:Name="IntoText" Style="{StaticResource CaptionMutedStyle}" TextAlignment="Center" MaxWidth="240"
+                                               TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                               ToolTipService.ToolTip="{x:Bind IntoText.Text, Mode=OneWay}" />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- album links pasted on Downloads, opened one after another -->
+                    <InfoBar x:Name="MoreAlbums" Visibility="{x:Bind MoreAlbums.IsOpen, Mode=OneWay}" Severity="Informational" IsClosable="True" Margin="6,0,6,16" IsOpen="False">
+                        <InfoBar.ActionButton>
+                            <Button Content="Open next" Click="OnOpenNextAlbum" />
+                        </InfoBar.ActionButton>
+                    </InfoBar>
+
+                    <StackPanel x:Name="Reading" Orientation="Horizontal" Spacing="8" Margin="6,0,6,16" Visibility="Collapsed">
+                        <ProgressRing x:Name="ReadingRing" Width="14" Height="14" IsActive="False" VerticalAlignment="Center" />
+                        <TextBlock x:Name="ReadingText" Style="{StaticResource CaptionMutedStyle}" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" ToolTipService.ToolTip="{x:Bind ReadingText.Text, Mode=OneWay}" />
+                    </StackPanel>
+
+                    <InfoBar x:Name="Problem" Visibility="{x:Bind Problem.IsOpen, Mode=OneWay}" Severity="Error" IsClosable="True" Margin="6,0,6,16" IsOpen="False" />
+
+                    <!-- nothing open: the watched albums, and the albums the site lists -->
+                    <StackPanel x:Name="Home" Margin="6,0,6,8">
+                        <!-- the watched albums, three a row: what is new in each, or why it couldn't be read -->
+                        <StackPanel x:Name="WatchedSection" Visibility="Collapsed" Margin="0,0,0,28">
+                            <Grid ColumnSpacing="10" MinHeight="24" Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Watching" Style="{StaticResource SectionHeaderStyle}" Margin="0" VerticalAlignment="Center" />
+                                <TextBlock x:Name="WatchEveryText" Grid.Column="1" Style="{StaticResource CaptionFaintStyle}" VerticalAlignment="Center"
+                                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                <Button x:Name="CheckNowButton" Grid.Column="2" VerticalAlignment="Center" Click="OnCheckNow"
+                                        Style="{StaticResource IconButtonStyle}" Width="Auto" Height="28" Padding="10,0">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon Glyph="&#xE72C;" FontSize="13" />
+                                        <TextBlock Text="Check now" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                            <ItemsRepeater x:Name="WatchedList">
+                                <ItemsRepeater.Layout>
+                                    <UniformGridLayout MinItemWidth="240" MinItemHeight="74" MinRowSpacing="10" MinColumnSpacing="10"
+                                                       MaximumRowsOrColumns="3" ItemsStretch="Fill" />
+                                </ItemsRepeater.Layout>
+                                <ItemsRepeater.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:WatchedAlbumViewModel">
+                                        <Grid ColumnSpacing="12" Padding="10" CornerRadius="12" BorderThickness="1"
+                                              Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                              BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="52" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid Width="52" Height="52" CornerRadius="10" Background="{x:Bind Placeholder}" VerticalAlignment="Center">
+                                                <TextBlock Text="{x:Bind Initial}" FontSize="20" FontWeight="SemiBold" Foreground="#E6FFFFFF"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Grid>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                                                <TextBlock Text="{x:Bind Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                                                           ToolTipService.ToolTip="{x:Bind Title}" />
+                                                <!-- new files are the one thing here in the accent, on a wash of it -->
+                                                <Grid Visibility="{x:Bind HasNew}" Height="22" CornerRadius="11" HorizontalAlignment="Left">
+                                                    <Border Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0.14" />
+                                                    <TextBlock Text="{x:Bind NewText}" Style="{StaticResource CaptionTextBlockStyle}" Margin="9,0" VerticalAlignment="Center"
+                                                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                                </Grid>
+                                                <TextBlock Visibility="{x:Bind CheckedTag}" Text="{x:Bind Status}" Style="{StaticResource CaptionMutedStyle}" TextWrapping="NoWrap"
+                                                           TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind Status}" />
+                                                <TextBlock Visibility="{x:Bind ProblemTag}" Text="{x:Bind Status}" Style="{StaticResource CaptionMutedStyle}" TextWrapping="NoWrap"
+                                                           Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextTrimming="CharacterEllipsis"
+                                                           ToolTipService.ToolTip="{x:Bind Status}" />
+                                            </StackPanel>
+                                            <Button Grid.Column="2" Style="{StaticResource RowActionStyle}" VerticalAlignment="Center" Click="OnWatchedMore"
+                                                    ToolTipService.ToolTip="More" AutomationProperties.Name="More">
+                                                <FontIcon Glyph="&#xE712;" FontSize="14" />
+                                            </Button>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsRepeater.ItemTemplate>
+                            </ItemsRepeater>
+                        </StackPanel>
+
+                        <!-- server mode with the server gone and nothing read before: this in place of the albums -->
+                        <Border x:Name="ServerDown" Visibility="Collapsed" Style="{StaticResource CardStyle}" Padding="24,72">
+                            <StackPanel HorizontalAlignment="Center" Spacing="4">
+                                <Grid Width="56" Height="56" CornerRadius="16" HorizontalAlignment="Center" Margin="0,0,0,12"
+                                      Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}">
+                                    <FontIcon Glyph="&#xE839;" FontSize="26" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
+                                </Grid>
+                                <TextBlock x:Name="ServerDownTitle" Style="{StaticResource SubheadingStyle}" HorizontalAlignment="Center" TextAlignment="Center"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="The server reads albums for you, so this PC fetches nothing from the sites itself. Your watched albums keep being checked there."
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" MaxWidth="420" HorizontalAlignment="Center"
+                                           TextAlignment="Center" TextWrapping="Wrap" />
+                                <TextBlock x:Name="ServerDownDetail" Style="{StaticResource CaptionFaintStyle}" MaxWidth="420" HorizontalAlignment="Center"
+                                           TextAlignment="Center" TextWrapping="Wrap" />
+                                <Button Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Center" Margin="0,12,0,0" Click="OnRetryServer">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon Glyph="&#xE72C;" FontSize="14" />
+                                        <TextBlock Text="Try now" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- the albums the site lists, read where pages are; more load as the page scrolls near their end -->
+                        <StackPanel x:Name="AlbumsSection">
+                            <Grid ColumnSpacing="10" MinHeight="24" Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Albums" Style="{StaticResource SectionHeaderStyle}" Margin="0" VerticalAlignment="Center" />
+                                <TextBlock x:Name="AlbumsCaption" Grid.Column="1" Text="Latest" Style="{StaticResource CaptionFaintStyle}"
+                                           VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                           ToolTipService.ToolTip="{x:Bind AlbumsCaption.Text, Mode=OneWay}" />
+                                <AutoSuggestBox x:Name="AlbumSearch" Grid.Column="2" Width="200" VerticalAlignment="Center" QueryIcon="Find"
+                                                PlaceholderText="Search albums" QuerySubmitted="OnAlbumSearch" TextChanged="OnAlbumSearchChanged"
+                                                AutomationProperties.Name="Search albums" />
+                                <ComboBox x:Name="AlbumSizeBox" Grid.Column="3" MinWidth="130" VerticalAlignment="Center"
+                                          SelectionChanged="OnAlbumSizeChanged" AutomationProperties.Name="Hide albums smaller than"
+                                          ToolTipService.ToolTip="Hide albums smaller than this" />
+                                <Button x:Name="RefreshAlbumsButton" Grid.Column="4" Style="{StaticResource IconButtonStyle}" VerticalAlignment="Center"
+                                        Click="OnRefreshAlbums" ToolTipService.ToolTip="Read the list again" AutomationProperties.Name="Read the list again">
+                                    <FontIcon Glyph="&#xE72C;" FontSize="14" />
+                                </Button>
+                            </Grid>
+                            <StackPanel x:Name="AlbumsStatus" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8" Visibility="Collapsed">
+                                <ProgressRing x:Name="AlbumsRing" Width="14" Height="14" IsActive="False" VerticalAlignment="Center" />
+                                <TextBlock x:Name="AlbumsText" Style="{StaticResource CaptionMutedStyle}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ItemsRepeater x:Name="AlbumGrid" SizeChanged="OnAlbumGridSizeChanged">
+                                <!-- as many covers a row as fit: OnAlbumGridSizeChanged sizes them so each picture stays square -->
+                                <ItemsRepeater.Layout>
+                                    <UniformGridLayout x:Name="AlbumLayout" MinItemWidth="164" MinItemHeight="225" MinRowSpacing="20"
+                                                       MinColumnSpacing="14" MaximumRowsOrColumns="6" ItemsStretch="None"
+                                                       ItemsJustification="Start" />
+                                </ItemsRepeater.Layout>
+                                <ItemsRepeater.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:AlbumCardViewModel">
+                                        <Button HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Padding="0"
+                                                ContextRequested="OnAlbumCardContextRequested"
+                                                PointerEntered="OnAlbumCardPointerEntered" PointerExited="OnAlbumCardPointerExited"
+                                                BorderThickness="0" Background="Transparent" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" Click="OnOpenAlbumCard"
+                                                AutomationProperties.Name="{x:Bind Title}" ToolTipService.ToolTip="{x:Bind Title}">
+                                            <!-- no button chrome: the outline round the picture says the pointer is on it -->
+                                            <Button.Resources>
+                                                <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="Transparent" />
+                                                <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="Transparent" />
+                                                <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="Transparent" />
+                                                <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="Transparent" />
+                                            </Button.Resources>
+                                            <!-- the second row: the gap, two lines of name and one of facts (CardTextHeight) -->
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="*" />
+                                                    <RowDefinition Height="61" />
+                                                </Grid.RowDefinitions>
+                                                <Grid CornerRadius="12" Background="{x:Bind Placeholder}">
+                                                    <TextBlock Text="{x:Bind Initial}" FontSize="64" FontWeight="SemiBold" Foreground="#B3FFFFFF"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <Border CornerRadius="12" BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BackgroundSizing="OuterBorderEdge">
+                                                        <Border.Background>
+                                                            <ImageBrush ImageSource="{x:Bind Thumbnail}" Stretch="UniformToFill" />
+                                                        </Border.Background>
+                                                    </Border>
+                                                    <!-- the album going to Downloads from here; on a picture, so the same in both themes -->
+                                                    <Border Visibility="{x:Bind HasDownloadNote, Mode=OneWay}" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                                            Margin="8" Height="18" Padding="7,0" CornerRadius="9" Background="#8C000000">
+                                                        <TextBlock Text="{x:Bind DownloadNote, Mode=OneWay}" FontSize="11" FontWeight="SemiBold" Foreground="White"
+                                                                   VerticalAlignment="Center" />
+                                                    </Border>
+                                                    <!-- with the pointer on it: a shade at the bottom, and the whole album to Downloads without opening it -->
+                                                    <Grid Opacity="{x:Bind HoverOpacity, Mode=OneWay}" IsHitTestVisible="{x:Bind IsPointerOver, Mode=OneWay}">
+                                                        <Grid.OpacityTransition>
+                                                            <ScalarTransition Duration="0:0:0.12" />
+                                                        </Grid.OpacityTransition>
+                                                        <Border CornerRadius="12" IsHitTestVisible="False">
+                                                            <Border.Background>
+                                                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                                                    <GradientStop Color="#00000000" Offset="0.45" />
+                                                                    <GradientStop Color="#99000000" Offset="1" />
+                                                                </LinearGradientBrush>
+                                                            </Border.Background>
+                                                        </Border>
+                                                        <Button Height="28" Margin="10" Padding="10,0" CornerRadius="8" BorderThickness="0" Background="#F0FFFFFF" Foreground="#12161B"
+                                                                HorizontalAlignment="Stretch" VerticalAlignment="Bottom" Click="OnDownloadAlbumCard"
+                                                                ToolTipService.ToolTip="Download album" AutomationProperties.Name="Download album">
+                                                            <Button.Resources>
+                                                                <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#FFFFFFFF" />
+                                                                <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#D9FFFFFF" />
+                                                                <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#12161B" />
+                                                                <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#12161B" />
+                                                            </Button.Resources>
+                                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                                <Grid>
+                                                                    <FontIcon Glyph="&#xE896;" FontSize="13" Opacity="{x:Bind ArrowOpacity, Mode=OneWay}">
+                                                                        <FontIcon.OpacityTransition>
+                                                                            <ScalarTransition Duration="0:0:0.2" />
+                                                                        </FontIcon.OpacityTransition>
+                                                                    </FontIcon>
+                                                                    <FontIcon Glyph="&#xE73E;" FontSize="13" Opacity="{x:Bind DoneOpacity, Mode=OneWay}">
+                                                                        <FontIcon.OpacityTransition>
+                                                                            <ScalarTransition Duration="0:0:0.2" />
+                                                                        </FontIcon.OpacityTransition>
+                                                                    </FontIcon>
+                                                                </Grid>
+                                                                <TextBlock Text="Download all" FontSize="12" />
+                                                            </StackPanel>
+                                                        </Button>
+                                                    </Grid>
+                                                    <Border CornerRadius="12" BorderThickness="2" BorderBrush="{ThemeResource FerryInkBrush}" IsHitTestVisible="False"
+                                                            Opacity="{x:Bind HoverOpacity, Mode=OneWay}" />
+                                                </Grid>
+                                                <StackPanel Grid.Row="1" Margin="0,9,0,0">
+                                                    <TextBlock Text="{x:Bind Title}" FontSize="13.5" LineHeight="18" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{x:Bind Facts, Mode=OneWay}" Style="{StaticResource CaptionMutedStyle}" TextWrapping="NoWrap"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsRepeater.ItemTemplate>
+                            </ItemsRepeater>
+                            <StackPanel x:Name="AlbumsMore" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" Margin="0,12"
+                                        Visibility="Collapsed">
+                                <ProgressRing x:Name="AlbumsMoreRing" Width="14" Height="14" IsActive="False" VerticalAlignment="Center" />
+                                <TextBlock x:Name="AlbumsMoreText" Text="Reading more albums…" Style="{StaticResource CaptionMutedStyle}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- where the tools lie, over the list, until the page has scrolled them to its top (PinTools) -->
+                    <Border x:Name="ToolsSlot" Visibility="Collapsed" Margin="0,0,0,8" />
+
+                    <StackPanel x:Name="NoMatch" Orientation="Horizontal" Spacing="8" Margin="6,6,6,0" Visibility="Collapsed">
+                        <TextBlock Text="No files match" Style="{StaticResource CaptionMutedStyle}" VerticalAlignment="Center" />
+                        <Button Content="Clear filters" Style="{StaticResource QuietButtonStyle}" Click="OnClearFilters" />
+                    </StackPanel>
+                </StackPanel>
+            </GridView.Header>
+
+            <!-- as many tiles a row as fit: OnFileGridSizeChanged sizes the cells so each picture is 4:3 -->
+            <GridView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <ItemsWrapGrid Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </GridView.ItemsPanel>
+
+            <GridView.ItemTemplate>
+                <DataTemplate x:DataType="vm:BrowsedFileViewModel">
+                    <Grid Background="Transparent" PointerEntered="OnFileTileEntered" PointerExited="OnFileTileExited">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="44" />
+                        </Grid.RowDefinitions>
+                        <!-- the file's kind, under its picture until that is read (OnFileRowRealized) -->
+                        <Grid CornerRadius="12" Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                            <FontIcon Glyph="{x:Bind Glyph}" FontSize="32" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                            <Border CornerRadius="12" BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BackgroundSizing="OuterBorderEdge">
+                                <Border.Background>
+                                    <ImageBrush ImageSource="{x:Bind Thumbnail}" Stretch="UniformToFill" />
+                                </Border.Background>
+                            </Border>
+                            <!-- on a picture, so the same in both themes; New is the one in the accent -->
+                            <StackPanel Orientation="Horizontal" Spacing="4" Margin="8" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                <Border Visibility="{x:Bind NewTag}" Height="18" CornerRadius="9" Padding="7,0" Background="{ThemeResource AccentFillColorDefaultBrush}">
+                                    <TextBlock Text="New" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"
+                                               Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                                </Border>
+                                <Border Visibility="{x:Bind InDownloadsTag, Mode=OneWay}" Height="18" CornerRadius="9" Padding="7,0" Background="#8C000000">
+                                    <TextBlock Text="In Downloads" FontSize="11" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center" />
+                                </Border>
+                                <!-- downloaded here before, also once it has left the queue (DownloadedFiles) -->
+                                <Border Visibility="{x:Bind DownloadedTag, Mode=OneWay}" Height="18" CornerRadius="9" Padding="7,0" Background="#8C000000">
+                                    <TextBlock Text="Downloaded" FontSize="11" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center" />
+                                </Border>
+                            </StackPanel>
+                            <!-- with the pointer on the tile: this file to Downloads, a tick once it is there -->
+                            <Button Width="32" Height="32" Padding="0" CornerRadius="16" BorderThickness="0" Background="#B3000000"
+                                    HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="8" Click="OnDownloadFile"
+                                    Opacity="{x:Bind HoverOpacity, Mode=OneWay}" IsHitTestVisible="{x:Bind IsPointerOver, Mode=OneWay}"
+                                    CenterPoint="16,16,0" PointerEntered="OnRoundButtonEntered" PointerExited="OnRoundButtonExited"
+                                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                                    ToolTipService.ToolTip="Download this file" AutomationProperties.Name="Download this file">
+                                <Button.OpacityTransition>
+                                    <ScalarTransition Duration="0:0:0.12" />
+                                </Button.OpacityTransition>
+                                <Button.ScaleTransition>
+                                    <Vector3Transition Duration="0:0:0.15" />
+                                </Button.ScaleTransition>
+                                <Button.Resources>
+                                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#E6000000" />
+                                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#FF000000" />
+                                    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="White" />
+                                    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="White" />
+                                </Button.Resources>
+                                <Grid>
+                                    <FontIcon Glyph="&#xE896;" FontSize="14" Foreground="White" Opacity="{x:Bind ArrowOpacity, Mode=OneWay}">
+                                        <FontIcon.OpacityTransition>
+                                            <ScalarTransition Duration="0:0:0.2" />
+                                        </FontIcon.OpacityTransition>
+                                    </FontIcon>
+                                    <FontIcon Glyph="&#xE73E;" FontSize="14" Foreground="White" Opacity="{x:Bind DoneOpacity, Mode=OneWay}">
+                                        <FontIcon.OpacityTransition>
+                                            <ScalarTransition Duration="0:0:0.2" />
+                                        </FontIcon.OpacityTransition>
+                                    </FontIcon>
+                                </Grid>
+                            </Button>
+                        </Grid>
+                        <StackPanel Grid.Row="1" Margin="0,8,0,0">
+                            <TextBlock Text="{x:Bind Name}" FontSize="13" LineHeight="18" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                                       ToolTipService.ToolTip="{x:Bind Name}" />
+                            <TextBlock Text="{x:Bind Detail}" Style="{StaticResource CaptionMutedStyle}" TextWrapping="NoWrap"
+                                       TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind Detail}" />
+                        </StackPanel>
+                    </Grid>
+                </DataTemplate>
+            </GridView.ItemTemplate>
+        </GridView>
+
+        <!-- a page open: find, its kinds and the other filters. It lies over the list, and is moved to stay in view as the
+             files scroll (PinTools); it stops short of the right edge so the list's scroll bar stays clear -->
+        <Border x:Name="Tools" Visibility="Collapsed" VerticalAlignment="Top" Margin="0,0,16,0" Padding="32,10,16,10" BorderThickness="0,0,0,1"
+                Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                SizeChanged="OnToolsSizeChanged">
+            <Border.RenderTransform>
+                <TranslateTransform x:Name="ToolsShift" />
+            </Border.RenderTransform>
+            <!-- on one line where they fit, else on more (LayoutForWidth) -->
+            <Grid ColumnSpacing="8" RowSpacing="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid x:Name="SearchHost" Width="180">
+                    <TextBox x:Name="SearchBox" Height="32" Padding="32,5,6,6" BorderThickness="0" Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                             PlaceholderText="Find in this album" TextChanged="OnSearchChanged" KeyDown="OnSearchKeyDown"
+                             ToolTipService.ToolTip="Every word must match" AutomationProperties.Name="Search file names" />
+                    <FontIcon Glyph="&#xE721;" FontSize="14" Margin="10,0,0,0" HorizontalAlignment="Left" IsHitTestVisible="False"
+                              Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                </Grid>
+                <!-- it scrolls sideways only when the window is narrower than it -->
+                <ScrollViewer x:Name="KindsHost" Grid.Column="1" HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Hidden"
+                              VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled">
+                    <Border Style="{StaticResource SegmentsStyle}">
+                        <StackPanel Orientation="Horizontal" Spacing="2">
+                            <RadioButton x:Name="AllToggle" AutomationProperties.Name="All" Style="{StaticResource SegmentItemStyle}" GroupName="BrowserKinds" IsChecked="True" Click="OnFilterClicked">
+                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                    <TextBlock Text="All" />
+                                    <TextBlock x:Name="AllCount" Style="{StaticResource CaptionFaintStyle}" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" />
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton x:Name="VideosToggle" AutomationProperties.Name="Videos" Style="{StaticResource SegmentItemStyle}" GroupName="BrowserKinds" Click="OnFilterClicked">
+                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                    <TextBlock Text="Videos" />
+                                    <TextBlock x:Name="VideosCount" Style="{StaticResource CaptionFaintStyle}" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" />
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton x:Name="ImagesToggle" AutomationProperties.Name="Images" Style="{StaticResource SegmentItemStyle}" GroupName="BrowserKinds" Click="OnFilterClicked">
+                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                    <TextBlock Text="Images" />
+                                    <TextBlock x:Name="ImagesCount" Style="{StaticResource CaptionFaintStyle}" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" />
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton x:Name="ArchivesToggle" AutomationProperties.Name="Archives" Style="{StaticResource SegmentItemStyle}" GroupName="BrowserKinds" Click="OnFilterClicked">
+                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                    <TextBlock Text="Archives" />
+                                    <TextBlock x:Name="ArchivesCount" Style="{StaticResource CaptionFaintStyle}" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" />
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton x:Name="OthersToggle" AutomationProperties.Name="Other" Style="{StaticResource SegmentItemStyle}" GroupName="BrowserKinds" Click="OnFilterClicked">
+                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                    <TextBlock Text="Other" />
+                                    <TextBlock x:Name="OthersCount" Style="{StaticResource CaptionFaintStyle}" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" />
+                                </StackPanel>
+                            </RadioButton>
+                        </StackPanel>
+                    </Border>
+                </ScrollViewer>
+                <services:WrapRow x:Name="ToolsTail" Grid.Column="2" Spacing="4" HorizontalAlignment="Right">
+                    <Button x:Name="SizeButton" Style="{StaticResource QuietButtonStyle}" ToolTipService.ToolTip="Size" AutomationProperties.Name="Size">
+                        <Button.Flyout>
+                            <MenuFlyout x:Name="SizeMenu" Placement="BottomEdgeAlignedLeft" />
+                        </Button.Flyout>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE71C;" FontSize="14" />
+                            <TextBlock x:Name="SizeText" FontSize="13" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="SortButton" Style="{StaticResource QuietButtonStyle}" ToolTipService.ToolTip="Sort by" AutomationProperties.Name="Sort by">
+                        <Button.Flyout>
+                            <MenuFlyout x:Name="SortMenu" Placement="BottomEdgeAlignedLeft" />
+                        </Button.Flyout>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE8CB;" FontSize="14" />
+                            <TextBlock x:Name="SortText" FontSize="13" />
+                        </StackPanel>
+                    </Button>
+                    <ToggleButton x:Name="DescendingToggle" Style="{StaticResource QuietToggleStyle}" Width="32" Padding="0" Click="OnFilterClicked"
+                                  ToolTipService.ToolTip="Reverse the order" AutomationProperties.Name="Reverse the order">
+                        <FontIcon Glyph="&#xE74B;" FontSize="14" />
+                    </ToggleButton>
+                    <ToggleButton x:Name="HideInDownloadsBox" Style="{StaticResource QuietToggleStyle}" Click="OnFilterClicked"
+                                  ToolTipService.ToolTip="Hide queued and downloaded" AutomationProperties.Name="Hide queued and downloaded">
+                        <TextBlock Text="Hide queued and downloaded" FontSize="13" />
+                    </ToggleButton>
+                </services:WrapRow>
+            </Grid>
+        </Border>
+
+        <!-- what is selected on the page open, and what to do with it, over the page's bottom edge, with a soft shadow -->
+        <Border x:Name="SelectionBar" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="16,0,16,18"
+                Padding="16,8,8,8" CornerRadius="14" BorderThickness="1" MaxWidth="720" Translation="0,0,32"
+                Background="{ThemeResource FerryRaisedBrush}" BorderBrush="{ThemeResource FerryLineStrongBrush}">
+            <Border.Shadow>
+                <ThemeShadow />
+            </Border.Shadow>
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                    <TextBlock x:Name="SelectionText" FontSize="13" FontWeight="SemiBold" LineHeight="18" TextTrimming="CharacterEllipsis"
+                               TextWrapping="NoWrap" AutomationProperties.LiveSetting="Polite" ToolTipService.ToolTip="{x:Bind SelectionText.Text, Mode=OneWay}" />
+                    <TextBlock x:Name="SelectionMore" Style="{StaticResource CaptionMutedStyle}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                               Visibility="Collapsed" />
+                    <!-- what was just sent to Downloads, for a few seconds -->
+                    <StackPanel x:Name="AddedNote" Orientation="Horizontal" Spacing="6" Visibility="Collapsed">
+                        <FontIcon Glyph="&#xE73E;" FontSize="12" Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                        <TextBlock x:Name="AddedText" Style="{StaticResource CaptionMutedStyle}" VerticalAlignment="Center"
+                                   AutomationProperties.LiveSetting="Polite" />
+                    </StackPanel>
+                </StackPanel>
+                <Button x:Name="SelectAllButton" Grid.Column="1" Style="{StaticResource QuietButtonStyle}" VerticalAlignment="Center" Click="OnSelectAll" />
+                <Button x:Name="AddButton" Grid.Column="2" Style="{StaticResource AccentButtonStyle}" VerticalAlignment="Center"
+                        IsEnabled="False" Click="OnAddToDownloads">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE896;" FontSize="14" />
+                        <TextBlock x:Name="AddText" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </Border>
+    </Grid>
+</Page>

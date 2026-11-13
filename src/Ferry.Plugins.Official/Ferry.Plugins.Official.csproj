@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Ferry.Core\Ferry.Core.csproj" />
+    <ProjectReference Include="..\Ferry.Plugins.AfterDownload\Ferry.Plugins.AfterDownload.csproj" />
+    <ProjectReference Include="..\Ferry.Plugins.BrowserLink\Ferry.Plugins.BrowserLink.csproj" />
+    <ProjectReference Include="..\Ferry.Plugins.CloudLinks\Ferry.Plugins.CloudLinks.csproj" />
+    <ProjectReference Include="..\Ferry.Plugins.Debrid\Ferry.Plugins.Debrid.csproj" />
+    <ProjectReference Include="..\Ferry.Plugins.DevReleases\Ferry.Plugins.DevReleases.csproj" />
+    <ProjectReference Include="..\Ferry.Plugins.Feeds\Ferry.Plugins.Feeds.csproj" />
+    <ProjectReference Include="..\Ferry.Plugins.FileHosts\Ferry.Plugins.FileHosts.csproj" />
+    <ProjectReference Include="..\Ferry.Plugins.FileServers\Ferry.Plugins.FileServers.csproj" />
+    <ProjectReference Include="..\Ferry.Plugins.Folders\Ferry.Plugins.Folders.csproj" />
+    <ProjectReference Include="..\Ferry.Plugins.MediaSites\Ferry.Plugins.MediaSites.csproj" />
+    <ProjectReference Include="..\Ferry.Plugins.Mega\Ferry.Plugins.Mega.csproj" />
+    <ProjectReference Include="..\Ferry.Plugins.Notifications\Ferry.Plugins.Notifications.csproj" />
+    <ProjectReference Include="..\Ferry.Plugins.OpenDirectories\Ferry.Plugins.OpenDirectories.csproj" />
+    <ProjectReference Include="..\Ferry.Plugins.RemoteQueues\Ferry.Plugins.RemoteQueues.csproj" />
+    <ProjectReference Include="..\Ferry.Plugins.VideoStreams\Ferry.Plugins.VideoStreams.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,19 @@
+# Text files are stored with LF; the working copy follows the platform unless a rule below says otherwise.
+* text=auto
+
+# Shell and web files are read on Linux and by browsers: always LF.
+*.sh text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+
+# Windows script files: CRLF, as their tools expect.
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Images and icons are never touched.
+*.png binary
+*.ico binary
