@@ -78,6 +78,12 @@ jobs:
       - name: Build the setup
         shell: pwsh
         run: ./installer/build.ps1 -Version 0.0.0 -SkipPublish
+      # the app as this commit builds it, to run from a folder and try: kept a week, as it is no release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ferry-portable-win-x64
+          path: artifacts/publish/app-win-x64/
+          retention-days: 7
 
   # Native AOT doesn't cross-compile between operating systems, so Windows builds its own; the Linux builds are single
   # files that cross-build (see tools/publish-cli.sh), both on x64.
