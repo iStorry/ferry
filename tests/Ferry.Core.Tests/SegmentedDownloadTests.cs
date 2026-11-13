@@ -339,7 +339,8 @@ public sealed class SegmentedDownloadTests : IDisposable
         await DownloadAsync();
 
         Assert.Equal(file.Data, await File.ReadAllBytesAsync(Saved()));
-        Assert.Equal(1, _events.OfType<DownloadConnectionsReduced>().Last().Left);
+        // the fewest, not the last heard: two connections standing down at once may be heard of in either order
+        Assert.Equal(1, _events.OfType<DownloadConnectionsReduced>().Min(reduced => reduced.Left));
     }
 
     [Fact]
