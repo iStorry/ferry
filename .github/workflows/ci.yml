@@ -113,7 +113,3 @@ jobs:
           bin=$(ls artifacts/cli/ferry-${{ matrix.rid }}*)
           "$bin" --version
           "$bin" --help > /dev/null
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ferry-${{ matrix.rid }}
-          path: artifacts/cli/
