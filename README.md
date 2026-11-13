@@ -45,8 +45,8 @@ Ferry is at 0.0.1. Most plugins have been tried against fake servers only, not y
 
 ## Install
 
-0.0.1 has no release yet: until it has, [build it](#build). From then on, from
-[Releases](https://github.com/iStorry/ferry/releases):
+From [Releases](https://github.com/iStorry/ferry/releases). 0.0.1 is a pre-release, so it is listed there but not marked
+as the latest:
 
 - `Ferry-{version}-setup.exe` installs for your user (no admin). The installed app updates itself.
 - `Ferry-{version}-win-x64-portable.zip` is the same app to run from a folder.
