@@ -163,7 +163,7 @@ jobs:
           awk -v h="$heading" '$0==h{f=1;next} /^## /{if(f)exit} f' CHANGELOG.md > notes.md
           [ -s notes.md ] || { echo "::error::the CHANGELOG section for $version is empty"; exit 1; }
           if [[ "$heading" == *"(pre-release)" ]]; then echo "PRERELEASE=--prerelease" >> "$GITHUB_ENV"; fi
-          printf '\nChecksums: SHA256SUMS.txt. The app updates itself; the .tar.gz files are the server's agent, which the app fetches when it needs one.\n' >> notes.md
+          printf '\nChecksums: SHA256SUMS.txt. The app updates itself; the .tar.gz files are the agent for a server, which the app fetches when it needs one.\n' >> notes.md
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
