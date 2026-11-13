@@ -1,14 +1,52 @@
+<div align="center">
+
+<img src="docs/images/icon.png" width="96" alt="">
+
 # Ferry
 
-A download manager for Windows. Paste a link and it downloads over several connections, pausing and resuming where it
-stopped. Plugins read the sites and services that need more than a plain link, and Server Support downloads on a Linux
-server of your own.
+**A download manager for Windows that can also download on a server of your own.**
+
+Paste a link and it downloads over several connections, pausing and resuming where it stopped.
+
+[![CI](https://github.com/iStorry/ferry/actions/workflows/ci.yml/badge.svg)](https://github.com/iStorry/ferry/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2dd4bf.svg)](LICENSE)
+![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-2dd4bf.svg)
+![.NET 10](https://img.shields.io/badge/.NET-10-2dd4bf.svg)
+
+[Install](#install) · [Use](#use) · [Plugins](#plugins) · [Write a plugin](docs/writing-plugins.md) · [Build](#build)
+
+<img src="docs/images/downloads.png" alt="Ferry downloading three files at once, with three more waiting">
+
+</div>
+
+## What it does
+
+- **Fast, and it picks up where it stopped.** Each file comes over several connections. A connection that runs out of
+  work takes half of what another still has, so all of them stay busy to the end. Pause, close the app, lose the
+  connection: it carries on from the bytes it has.
+- **Reads more than plain links.** Cloud share links, GitHub releases, folders, open directories, video playlists, Mega,
+  FTP and SFTP work as they are. More is a switch away: torrents, feeds, debrid, video pages through yt-dlp.
+- **Downloads on your own server.** Server Support puts a small agent on a Linux server over SSH. The server downloads,
+  also while this PC is off, and Ferry brings the finished files over, checked with SHA-256.
+- **Plugins people install.** A plugin teaches Ferry a site. It is a package you add from a file or a link, and it runs
+  on your server, not on this PC.
+- **Yours to shape.** A speed limit, a schedule, sorting by type, rules for finished files, a PIN on the window. Every
+  setting is also an environment variable.
+- **Quiet.** No account, no ads, no telemetry.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/images/plugins.png" alt="The Plugins page: what is built in, and the plugins to turn on"></td>
+<td width="50%"><img src="docs/images/settings.png" alt="The Settings page: where downloads happen and how fast"></td>
+</tr>
+</table>
 
 Ferry is at 0.0.1. Most plugins have been tried against fake servers only, not yet the real sites.
 
 ## Install
 
-From [Releases](https://github.com/iStorry/ferry/releases):
+0.0.1 has no release yet: until it has, [build it](#build). From then on, from
+[Releases](https://github.com/iStorry/ferry/releases):
 
 - `Ferry-{version}-setup.exe` installs for your user (no admin). The installed app updates itself.
 - `Ferry-{version}-win-x64-portable.zip` is the same app to run from a folder.
@@ -71,7 +109,12 @@ server downloads, also while this PC is off, and Ferry brings the finished files
 
 ## What Ferry sends by itself
 
-Once a day it asks GitHub whether there is a newer release; Settings turns this off. There is no telemetry.
+- Once a day it asks GitHub whether there is a newer release of Ferry.
+- For each plugin you installed from a GitHub release, it asks that repository whether there is a newer package: after it
+  starts and when you open Plugins, at most once an hour. A repository that isn't public is asked with the access token
+  you gave for it, which is kept encrypted for your Windows user and sent to GitHub only.
+
+Settings, Check for updates turns both off. Nothing is installed without asking. There is no telemetry.
 
 ## Build
 
