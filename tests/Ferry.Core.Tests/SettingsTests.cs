@@ -296,6 +296,20 @@ public sealed class SettingsTests : IDisposable
     }
 
     [Fact]
+    public void ASettingAddedAfterTheseWereReadIsAtItsDefaultHere()
+    {
+        var before = Store().Load();
+        var later = new SettingKey("FERRY_ADDED_LATER", SettingType.Text, "as it comes", "A plugin's, installed while Ferry runs.");
+
+        SettingKey.Contribute([later]);
+
+        Assert.Equal("as it comes", before.Text(later));
+        Assert.Equal(SettingSource.Default, before[later].Source);
+        Assert.DoesNotContain(later.Name, before.Changed().Keys);
+        Assert.Contains(before.Values, value => value.Key == later);
+    }
+
+    [Fact]
     public void PathsArePerUser()
     {
         var paths = AppPaths.ForApp();

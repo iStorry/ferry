@@ -49,10 +49,14 @@ public sealed class FerrySettings
     /// <summary>What the app remembers in the settings file besides settings (keys without the FERRY_ prefix).</summary>
     public IReadOnlyDictionary<string, string> State { get; }
 
-    public SettingValue this[SettingKey key] => _values[key];
+    /// <summary>
+    /// The setting as it is here. One that became a setting after these were read, as a plugin installed since has, is at
+    /// its default: these are how things were when they were read.
+    /// </summary>
+    public SettingValue this[SettingKey key] => _values.TryGetValue(key, out var value) ? value : new SettingValue(key, key.Default, SettingSource.Default);
 
     /// <summary>Every setting in <see cref="SettingKey.All"/> order.</summary>
-    public IEnumerable<SettingValue> Values => SettingKey.All.Select(k => _values[k]);
+    public IEnumerable<SettingValue> Values => SettingKey.All.Select(key => this[key]);
 
     /// <summary>Settings from defaults alone, as on a new install.</summary>
     public static FerrySettings Defaults(AppPaths paths) =>
@@ -107,7 +111,7 @@ public sealed class FerrySettings
         source == SettingSource.Environment ? "the settings file's value or the default"
         : key.Default.Length == 0 ? "the default" : $"the default, {key.Default}";
 
-    public string Text(SettingKey key) => _values[key].Text;
+    public string Text(SettingKey key) => this[key].Text;
 
     public int Number(SettingKey key) => (int)Math.Clamp(long.Parse(Text(key), CultureInfo.InvariantCulture), int.MinValue, int.MaxValue);
 
