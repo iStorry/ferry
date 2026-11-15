@@ -149,6 +149,48 @@ public sealed class ServerConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Open a way for a browser on this PC to reach a site from the server's address: a SOCKS proxy on this PC's
+    /// loopback, there for as long as what is returned is kept. It is checked by reaching <paramref name="host"/> through it.
+    /// </summary>
+    /// <param name="host">the site the browser is for</param>
+    /// <exception cref="StageException">the server can't be reached, or doesn't forward connections (<see cref="Stage.Server"/>)</exception>
+    /// <exception cref="HostKeyChangedException">the server's key is not the confirmed one</exception>
+    public async Task<ServerTunnel> OpenTunnelAsync(string host, CancellationToken cancel)
+    {
+        var port = ServerTunnel.FreePort();
+        var askpass = _secret is null ? null : Askpass.Start(_secret);
+        SshProcess? ssh = null;
+        try
+        {
+            ssh = SshProcess.Start(_tools.Ssh, SshArguments.For(_target, _login, "", askpass: _secret is not null, socksPort: port), askpass?.Environment);
+            var tunnel = new ServerTunnel(ssh, askpass, port);
+            if (!await tunnel.ListensAsync(cancel))
+            {
+                await ssh.ErrorsEndedAsync(cancel);
+                throw await FailureAsync(ssh.Errors, cancel);
+            }
+            if (!await ServerTunnel.ReachesAsync(port, host, cancel))
+            {
+                throw new StageException(Stage.Server,
+                    $"{Display} doesn't pass connections on for Ferry (its SSH has forwarding turned off: AllowTcpForwarding), " +
+                    $"or it can't reach {host}. The check has to be passed from the server's address, so it can't be shown.");
+            }
+            return tunnel;
+        }
+        catch
+        {
+            if (ssh is not null)
+            {
+                ssh.Kill();
+                await ssh.DisposeAsync();
+            }
+            if (askpass is not null)
+                await askpass.DisposeAsync();
+            throw;
+        }
+    }
+
     /// <summary>Start <paramref name="command"/> for its stdout alone (a file's bytes), its stdin closed.</summary>
     internal (SshProcess Process, Askpass? Askpass) StartReading(string command)
     {

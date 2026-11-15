@@ -218,7 +218,7 @@ public sealed class BrowseHost : IAsyncDisposable
         if (_remote is { } previous)
             previous.ConnectionChanged -= OnConnectionChanged;
         _remote = remote;
-        _remoteBrowser = remote is null ? null : new RemotePageBrowser(remote);
+        _remoteBrowser = remote is null ? null : new RemotePageBrowser(remote, _app.Checks.PassAsync);
         _remoteWatcher = remote is null ? null : new RemoteAlbumWatcher(remote);
         if (remote is null)
             return;

@@ -4,7 +4,11 @@ using Ferry.Core.Browse;
 namespace Ferry.Plugins.Server;
 
 /// <summary>The PC's reader: the agent reads the page, or the list of albums, on the server and says what is on it.</summary>
-public sealed class RemotePageBrowser(RemoteQueue agent) : IPageBrowser, IAlbumDirectory
+/// <param name="pass">
+/// shows a person a site's check and returns what passing it earned, or null when it wasn't passed; without it a check
+/// is a failure like any other
+/// </param>
+public sealed class RemotePageBrowser(RemoteQueue agent, Func<PersonCheck, CancellationToken, Task<PassedCheck?>>? pass = null) : IPageBrowser, IAlbumDirectory
 {
     // an album of many pages, each read with retries, takes longer than an ordinary request may
     private static readonly TimeSpan ReadTimeout = TimeSpan.FromMinutes(10);
@@ -25,10 +29,24 @@ public sealed class RemotePageBrowser(RemoteQueue agent) : IPageBrowser, IAlbumD
         (await ReadAsync(new AgentRequest(0, AgentCommand.AlbumDetails, Link: album.Original.ToString()), cancel)).Details
         ?? throw new StageException(Stage.Server, "The server answered without the album's details.");
 
+    /// <summary>
+    /// Ask the agent. A site's check in the way is shown to the person once; passed, the agent hears of it and is asked
+    /// again. A check still in the way after that is the failure it says it is.
+    /// </summary>
     private async Task<AgentMessage> ReadAsync(AgentRequest request, CancellationToken cancel)
     {
         try
         {
+            try
+            {
+                return await agent.RequestAsync(request, ReadTimeout, cancel);
+            }
+            catch (StageException e) when (e.Check is { IsUsable: true } check && pass is not null)
+            {
+                if (await pass(check, cancel) is not { } passed)
+                    throw;
+                await agent.RequestAsync(new AgentRequest(0, AgentCommand.Passed, Pass: passed), cancel: cancel);
+            }
             return await agent.RequestAsync(request, ReadTimeout, cancel);
         }
         catch (InvalidOperationException e)

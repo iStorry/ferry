@@ -94,6 +94,12 @@ public enum AgentCommand
 
     /// <summary>Search the site a plugin knows for a title (<see cref="AgentRequest.Name"/>), and answer with what it lists (<see cref="AgentMessage.Titles"/>).</summary>
     TitleSearch,
+
+    /// <summary>
+    /// A person at the PC passed a site's check (<see cref="AgentRequest.Pass"/>), which an answer before had said was in
+    /// the way (<see cref="AgentMessage.Check"/>): the plugins hear of it, and the PC asks again.
+    /// </summary>
+    Passed,
 }
 
 public enum AgentEventKind
@@ -117,11 +123,13 @@ public enum AgentEventKind
 /// <param name="Folder">Add: a folder of their own for the files, under the download folder (an album's name)</param>
 /// <param name="Details">Add, Details, Expand, Read: what to send with every request for these files; kept in the agent's memory only</param>
 /// <param name="Sha256">Add: what the finished file must hash to</param>
+/// <param name="Pass">Passed: the check and what passing it earned; kept in the agent's memory only</param>
 internal sealed record AgentRequest(int Id, AgentCommand Command, Guid? Item = null, List<string>? Lines = null,
                                     string? Name = null, long? BytesPerSecond = null, bool? Flag = null,
                                     string? Version = null, Dictionary<string, string>? Settings = null,
                                     string? Link = null, string? Folder = null, RequestDetails? Details = null, string? Sha256 = null,
-                                    BrowsedPage? Page = null, AlbumQuery? Query = null, Dictionary<string, string>? Secrets = null);
+                                    BrowsedPage? Page = null, AlbumQuery? Query = null, Dictionary<string, string>? Secrets = null,
+                                    PassedCheck? Pass = null);
 
 /// <summary>
 /// One line from the agent to the PC: the answer to request <see cref="Answers"/>, or an event
@@ -140,6 +148,7 @@ internal sealed record AgentRequest(int Id, AgentCommand Command, Guid? Item = n
 /// <param name="Files">Expand: the files behind the link; null when it is a link to one file</param>
 /// <param name="Name">Read: the file's name as its site gives it</param>
 /// <param name="Size">FileInfo: the finished file's size. Read: the file's size, when its site says it before downloading</param>
+/// <param name="Check">with <see cref="Error"/>: the site wants a check only a person can pass, and this is it</param>
 internal sealed record AgentMessage(int? Answers = null, string? Error = null, Stage? ErrorStage = null,
                                     string? Version = null, List<RemoteItem>? Items = null,
                                     List<RemoteItem>? Duplicates = null, List<RejectedLink>? Rejected = null,
@@ -148,7 +157,7 @@ internal sealed record AgentMessage(int? Answers = null, string? Error = null, S
                                     AgentStats? Stats = null, string? Log = null, string? Folder = null, FileList? Files = null,
                                     string? Name = null, List<AgentPlugin>? Plugins = null, BrowsedPage? Page = null,
                                     List<WatchedAlbum>? Albums = null, List<AlbumCard>? Cards = null, byte[]? Picture = null,
-                                    AlbumDetails? Details = null, List<FoundTitle>? Titles = null);
+                                    AlbumDetails? Details = null, List<FoundTitle>? Titles = null, PersonCheck? Check = null);
 
 /// <summary>The one plugin whose site the agent browses, for the Browser page: its pages, its list of albums, and albums watched.</summary>
 /// <param name="Name">what people call the plugin</param>

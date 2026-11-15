@@ -64,6 +64,21 @@ public sealed class OpenSshTests
     }
 
     [Fact]
+    public void ATunnelRunsNoCommandAndForwardsOnlyItsOwnPortOnLoopback()
+    {
+        var arguments = SshArguments.For(Target, SshLogin.Key, "", socksPort: 51234);
+        var options = Options(arguments);
+
+        Assert.Equal(["-N", "-D", "127.0.0.1:51234", "server.example"], arguments.TakeLast(4));
+        Assert.DoesNotContain("--", arguments);
+        Assert.False(options.ContainsKey("ClearAllForwardings")); // it would clear the tunnel's own
+        Assert.Equal("yes", options["ExitOnForwardFailure"]);
+        Assert.Equal("yes", options["StrictHostKeyChecking"]);
+        // every other run still forwards nothing
+        Assert.Equal("yes", Options(SshArguments.For(Target, SshLogin.Key, "true"))["ClearAllForwardings"]);
+    }
+
+    [Fact]
     public void AKeyLoginNeverAsksAndChecksTheConfirmedKey()
     {
         var options = Options(SshArguments.For(Target, SshLogin.Key, "true"));

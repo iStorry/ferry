@@ -40,6 +40,7 @@ public sealed class AppServices
         Queue = new QueueHost(this, ui);
         Speed = new QueueSpeed(Queue, ui);
         Updater = new Updater(this, ui);
+        Checks = new PersonChecks(this, ui);
         Browse = new BrowseHost(this, ui);
         PluginUpdates = new PluginUpdates(this);
     }
@@ -92,6 +93,9 @@ public sealed class AppServices
 
     /// <summary>The page reader and album watcher, for the Browser page, while an installed plugin has a site to browse.</summary>
     public BrowseHost Browse { get; }
+
+    /// <summary>Shows a person a site's check that only a person can pass, when the browsed site asks for one.</summary>
+    public PersonChecks Checks { get; }
 
     /// <summary>Which of the browsed site's files were downloaded here, or null when that can't be kept.</summary>
     public Ferry.Core.Browse.DownloadedFiles? Downloaded { get; private set; }

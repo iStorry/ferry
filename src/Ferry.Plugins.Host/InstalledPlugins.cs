@@ -15,8 +15,9 @@ namespace Ferry.Plugins.Host;
 /// <param name="Problem">why it couldn't be loaded, for the person who installed it</param>
 /// <param name="Browsing">its site to browse, when it has one</param>
 /// <param name="Lookup">what searches its site for titles, when it does that; a throw inside it is said of the plugin</param>
+/// <param name="Passed">what hears of a check a person passed, when its site may ask for one; a throw inside it is logged</param>
 public sealed record InstalledPlugin(string Id, string Version, string Sha256, SitePlugin? Plugin, string? Problem, SiteBrowsing? Browsing = null,
-                                     Func<PluginContext, ITitleLookup>? Lookup = null);
+                                     Func<PluginContext, ITitleLookup>? Lookup = null, Action<PassedCheck>? Passed = null);
 
 /// <summary>A plugin's site as the Browser page needs it: which links are its pages, and what reads them.</summary>
 /// <param name="Make">what reads the site, with the settings in the context; a throw inside it is said of the plugin</param>
@@ -78,7 +79,8 @@ public static class InstalledPlugins
                 throw new PluginException("Its code and its manifest disagree about its name, its switch or what it offers. It needs packing again.");
             var site = browsing is null ? null : new SiteBrowsing(loaded.Claims, browsing.Pages, context => new GuardedBrowsing(browsing.Browse(context), plugin.Name));
             Func<PluginContext, ITitleLookup>? lookup = loaded is ILookupPlugin looks ? context => new GuardedLookup(looks.Lookup(context), plugin.Name) : null;
-            return new InstalledPlugin(manifest.Id, manifest.Version, package.Sha256, Guarded(plugin, log), null, site, lookup);
+            Action<PassedCheck>? passed = loaded is ICheckedPlugin checks ? pass => Hear(plugin.Name, log, () => checks.Passed(pass)) : null;
+            return new InstalledPlugin(manifest.Id, manifest.Version, package.Sha256, Guarded(plugin, log), null, site, lookup, passed);
         }
 #pragma warning disable CA1031 // a stranger's code, run for the first time: whatever it throws is its own failure
         catch (Exception e)
@@ -118,6 +120,20 @@ public static class InstalledPlugins
         Options = plugin.Options,
         Secrets = plugin.Secrets,
     };
+
+    private static void Hear(string plugin, Action<string> log, Action hear)
+    {
+        try
+        {
+            hear();
+        }
+#pragma warning disable CA1031 // as above
+        catch (Exception e)
+#pragma warning restore CA1031
+        {
+            log($"plugin {plugin} failed hearing of a passed check: {e.Message}");
+        }
+    }
 
     private static List<T> Try<T>(string plugin, Action<string> log, Func<List<T>> make)
     {

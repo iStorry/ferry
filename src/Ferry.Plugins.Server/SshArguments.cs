@@ -42,7 +42,11 @@ internal static class SshArguments
 
     /// <param name="command">the remote command, already quoted for the server's shell (<see cref="AgentInstaller.Quote"/>)</param>
     /// <param name="askpass">a key login whose passphrase askpass answers: BatchMode would stop ssh asking for it</param>
-    public static List<string> For(SshTarget target, SshLogin login, string command, bool askpass = false)
+    /// <param name="socksPort">
+    /// no command at all: a SOCKS proxy on this PC's loopback at this port instead, whose connections leave from the
+    /// server (<see cref="ServerTunnel"/>). The one run that forwards anything
+    /// </param>
+    public static List<string> For(SshTarget target, SshLogin login, string command, bool askpass = false, int? socksPort = null)
     {
         var arguments = new List<string> { "-F", "none" };
         void Option(string name, string value) => arguments.AddRange(["-o", $"{name}={value}"]);
@@ -95,12 +99,19 @@ internal static class SshArguments
         Option("Compression", "no");
         Option("IPQoS", "throughput");
         Option("ControlMaster", "no");
-        Option("ClearAllForwardings", "yes");
+        // it would clear the one forwarding a tunnel is for, given on the command line; with -F none there is no other
+        if (socksPort is null)
+            Option("ClearAllForwardings", "yes");
+        else
+            Option("ExitOnForwardFailure", "yes");
         Option("PermitLocalCommand", "no");
         Option("LogLevel", "ERROR");
         // no tty, no X11, no agent forwarding, and no escape character: stdin may be a binary file (an upload)
         arguments.AddRange(["-T", "-x", "-a", "-e", "none"]);
-        arguments.AddRange([target.Host, "--", command]);
+        if (socksPort is { } port)
+            arguments.AddRange(["-N", "-D", string.Create(CultureInfo.InvariantCulture, $"127.0.0.1:{port}"), target.Host]);
+        else
+            arguments.AddRange([target.Host, "--", command]);
         return arguments;
     }
 

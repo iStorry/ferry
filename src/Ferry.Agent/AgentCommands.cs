@@ -97,8 +97,8 @@ internal static partial class AgentCommands
         // at once, so a stop never finds the lock held and an older agent's pid in the file
         await File.WriteAllTextAsync(paths.PidFile, Environment.ProcessId.ToString(CultureInfo.InvariantCulture), cancel);
 #if SERVER_AGENT
-        var (plugins, browsing, lookup) = ServerPlugins.Load(paths);
-        await using var host = AgentHost.Start(paths, plugins: plugins, browsing: browsing, lookup: lookup);
+        var (plugins, browsing, lookup, passed) = ServerPlugins.Load(paths);
+        await using var host = AgentHost.Start(paths, plugins: plugins, browsing: browsing, lookup: lookup, passed: passed);
 #else
         await using var host = AgentHost.Start(paths);
 #endif

@@ -466,7 +466,7 @@ public sealed class RemoteQueue : IDownloadQueue
         return answer.Error switch
         {
             null => answer,
-            var error when answer.ErrorStage is { } stage => throw new StageException(stage, error),
+            var error when answer.ErrorStage is { } stage => throw new StageException(stage, error) { Check = answer.Check },
             var error => throw new InvalidOperationException(error),
         };
     }
