@@ -61,6 +61,12 @@ public sealed class StageException(Stage stage, string message, bool isRetryable
     public TimeSpan? RetryAfter { get; } = retryAfter;
     public HttpStatusCode? Status { get; } = status;
 
+    /// <summary>
+    /// The site answered with a check only a person in a browser can pass, and this is it. Where there is a person to
+    /// ask, Ferry shows them the page and hands what they earned to the plugin (<see cref="Plugins.ICheckedPlugin"/>).
+    /// </summary>
+    public PersonCheck? Check { get; init; }
+
     /// <summary>The server is overloaded or limiting how often it is asked (503, 429): fewer requests, more slowly.</summary>
     public bool IsBusy => Status is HttpStatusCode.ServiceUnavailable or HttpStatusCode.TooManyRequests;
 }

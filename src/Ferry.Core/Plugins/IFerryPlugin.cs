@@ -48,6 +48,20 @@ public interface ILookupPlugin : IFerryPlugin
     ITitleLookup Lookup(PluginContext context);
 }
 
+/// <summary>
+/// A plugin whose site may ask for a check only a person can pass. It says so by throwing a <see cref="StageException"/>
+/// with its <see cref="StageException.Check"/> set; when a person at the PC has passed it, this hears of it, and whoever
+/// asked asks once more.
+/// </summary>
+public interface ICheckedPlugin : IFerryPlugin
+{
+    /// <summary>
+    /// A person passed a check. Every plugin of this kind hears of every pass, so each takes only those of its own
+    /// sites. It is kept in memory only.
+    /// </summary>
+    void Passed(PassedCheck pass);
+}
+
 /// <summary>Searches a site for a title.</summary>
 public interface ITitleLookup
 {

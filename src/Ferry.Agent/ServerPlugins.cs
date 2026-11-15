@@ -9,10 +9,12 @@ namespace Ferry.Agent;
 internal static class ServerPlugins
 {
     /// <summary>Load every package in the agent's plugins folder, and add those that can be to what the agent downloads with.</summary>
-    /// <returns>each package, loaded or not, for the PC to hear of; the first of them with a site to browse, and the first that looks titles up, if any</returns>
-    public static (List<AgentPlugin> Plugins, AgentBrowsing? Browsing, AgentLookup? Lookup) Load(AgentPaths paths)
+    /// <returns>each package, loaded or not, for the PC to hear of; the first of them with a site to browse, and the first that looks
+    /// titles up, if any; and what tells those whose sites ask for a person's check that one was passed, if any</returns>
+    public static (List<AgentPlugin> Plugins, AgentBrowsing? Browsing, AgentLookup? Lookup, Action<Core.PassedCheck>? Passed) Load(AgentPaths paths)
     {
         var plugins = new List<AgentPlugin>();
+        Action<Core.PassedCheck>? passed = null;
         AgentBrowsing? browsing = null;
         AgentLookup? lookup = null;
         foreach (var installed in InstalledPlugins.Load(paths.PluginsFolder, AgentHost.Log))
@@ -28,6 +30,7 @@ internal static class ServerPlugins
                         browsing = Browsing(plugin, site);
                     else if (installed.Browsing is not null)
                         AgentHost.Log($"plugin {installed.Id} has a site to browse, and {browsing!.Name}'s is browsed already: only one is, for now");
+                    passed += installed.Passed;
                     if (installed.Lookup is { } make && lookup is null)
                         lookup = new AgentLookup(plugin.Name, plugin.IsOn, make);
                     else if (installed.Lookup is not null)
@@ -36,7 +39,7 @@ internal static class ServerPlugins
             }
             plugins.Add(new AgentPlugin(installed.Id, installed.Version, installed.Sha256, problem));
         }
-        return (plugins, browsing, lookup);
+        return (plugins, browsing, lookup, passed);
     }
 
     private static AgentBrowsing Browsing(SitePlugin plugin, SiteBrowsing site) =>

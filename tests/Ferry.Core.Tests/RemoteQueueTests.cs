@@ -987,4 +987,94 @@ public sealed class RemoteQueueTests : IAsyncLifetime, IDisposable
             Directory.Delete(shortRoot, recursive: true);
         }
     }
+
+    /// <summary>A site that answers with a check until a person has passed it, as a plugin's would.</summary>
+    private sealed class CheckedSite : Ferry.Core.Plugins.ISiteBrowsing
+    {
+        public static readonly PersonCheck Check = new(new Uri("https://albums.example/"), "pass");
+
+        public PassedCheck? Pass;
+        public int Asked;
+
+        public Task<IReadOnlyList<Ferry.Core.Browse.AlbumCard>> AlbumsAsync(Ferry.Core.Browse.AlbumQuery query, CancellationToken cancel)
+        {
+            Asked++;
+            return Pass is null
+                ? throw new StageException(Stage.Resolve, "albums.example wants a person.") { Check = Check }
+                : Task.FromResult<IReadOnlyList<Ferry.Core.Browse.AlbumCard>>([]);
+        }
+
+        public Task<Ferry.Core.Browse.BrowsedPage> OpenAsync(Ferry.Core.Browse.PageLink link, CancellationToken cancel) => throw new NotSupportedException();
+
+        public Task<byte[]> ThumbnailAsync(Uri picture, CancellationToken cancel) => throw new NotSupportedException();
+
+        public Task<Ferry.Core.Browse.AlbumDetails> DetailsAsync(Ferry.Core.Browse.PageLink album, CancellationToken cancel) => throw new NotSupportedException();
+    }
+
+    private AgentHost StartAgent(CheckedSite site)
+    {
+        var host = AgentHost.Start(Agent, browsing: new AgentBrowsing("Example", _ => true, (_, _) => null, _ => site), passed: pass => site.Pass = pass);
+        _running.Add(host);
+        return host;
+    }
+
+    [Fact]
+    public async Task ASitesCheckIsShownToThePersonAndThePassGoesToTheAgentBeforeItIsAskedAgain()
+    {
+        var site = new CheckedSite();
+        var pc = Pc();
+        await AttachAsync(pc, StartAgent(site));
+        var shown = new List<PersonCheck>();
+        var passed = new PassedCheck(CheckedSite.Check.Page, "pass", "earned", "A browser");
+        var browser = new RemotePageBrowser(pc, (check, _) =>
+        {
+            shown.Add(check);
+            return Task.FromResult<PassedCheck?>(passed);
+        });
+
+        var albums = await browser.AlbumsAsync(Ferry.Core.Browse.AlbumQuery.Latest, _stop.Token).WaitAsync(Patience);
+
+        Assert.Empty(albums);
+        Assert.Equal([CheckedSite.Check], shown);
+        Assert.Equal(passed, site.Pass);
+        Assert.Equal(2, site.Asked);
+    }
+
+    [Fact]
+    public async Task ACheckNobodyPassesIsTheFailureItWas()
+    {
+        var site = new CheckedSite();
+        var pc = Pc();
+        await AttachAsync(pc, StartAgent(site));
+
+        // nobody to show it to, and a person who closes the window
+        var unasked = await Assert.ThrowsAsync<StageException>(() => new RemotePageBrowser(pc).AlbumsAsync(Ferry.Core.Browse.AlbumQuery.Latest, _stop.Token));
+        var declined = await Assert.ThrowsAsync<StageException>(() =>
+            new RemotePageBrowser(pc, (_, _) => Task.FromResult<PassedCheck?>(null)).AlbumsAsync(Ferry.Core.Browse.AlbumQuery.Latest, _stop.Token));
+
+        Assert.Equal(CheckedSite.Check, unasked.Check);
+        Assert.Equal("albums.example wants a person.", declined.Message);
+        Assert.Null(site.Pass);
+    }
+
+    [Fact]
+    public async Task APassThatDidNotStickIsNotAskedForTwiceInOneRead()
+    {
+        var site = new CheckedSite();
+        var pc = Pc();
+        var host = AgentHost.Start(Agent, browsing: new AgentBrowsing("Example", _ => true, (_, _) => null, _ => site), passed: _ => { });
+        _running.Add(host);
+        await AttachAsync(pc, host);
+        var shown = 0;
+        var browser = new RemotePageBrowser(pc, (check, _) =>
+        {
+            shown++;
+            return Task.FromResult<PassedCheck?>(new PassedCheck(check.Page, check.Cookie, "refused", "A browser"));
+        });
+
+        var failure = await Assert.ThrowsAsync<StageException>(() => browser.AlbumsAsync(Ferry.Core.Browse.AlbumQuery.Latest, _stop.Token));
+
+        Assert.Equal(1, shown);
+        Assert.Equal(CheckedSite.Check, failure.Check);
+    }
 }

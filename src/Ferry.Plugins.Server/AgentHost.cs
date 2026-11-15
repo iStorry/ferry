@@ -89,6 +89,7 @@ public sealed class AgentHost : IAsyncDisposable
     private readonly IReadOnlyList<AgentPlugin> _plugins;
     private readonly AgentBrowsing? _browsing;
     private readonly AgentLookup? _lookup;
+    private readonly Action<PassedCheck>? _passed;
     private readonly AlbumWatcher _watcher;
     private readonly HttpFetcher _http;
     private readonly SpeedLimit _overall = new();
@@ -119,9 +120,10 @@ public sealed class AgentHost : IAsyncDisposable
     private volatile bool _unsaved;
     private int _saveScheduled;
 
-    private AgentHost(AgentPaths paths, string version, FerrySettings settings, IReadOnlyList<AgentPlugin> plugins, AgentBrowsing? browsing, AgentLookup? lookup)
+    private AgentHost(AgentPaths paths, string version, FerrySettings settings, IReadOnlyList<AgentPlugin> plugins, AgentBrowsing? browsing, AgentLookup? lookup,
+                      Action<PassedCheck>? passed)
     {
-        (_paths, _version, _plugins, _browsing, _lookup, _settings) = (paths, version, plugins, browsing, lookup, settings);
+        (_paths, _version, _plugins, _browsing, _lookup, _passed, _settings) = (paths, version, plugins, browsing, lookup, passed, settings);
         // the watcher reads through whatever reads the site now, and holds off while nothing does
         _watcher = new AlbumWatcher(new SitePages(this), paths.WatchedFile, IAlbumWatcher.Every, TimeProvider.System, mayRead: () => _site is not null,
                                     problem: (what, e) => Log($"{what}: {e.Message}"));
@@ -138,12 +140,13 @@ public sealed class AgentHost : IAsyncDisposable
     /// <param name="plugins">the installed plugins, loaded or not, already added to what the agent downloads with</param>
     /// <param name="browsing">the plugin whose site is browsed, when one of them has a site to browse</param>
     /// <param name="lookup">the plugin whose site is searched for titles, when one of them does that</param>
+    /// <param name="passed">tells the plugins whose sites ask for a person's check that one was passed, when any does</param>
     public static AgentHost Start(AgentPaths paths, string? version = null, IReadOnlyList<AgentPlugin>? plugins = null, AgentBrowsing? browsing = null,
-                                  AgentLookup? lookup = null)
+                                  AgentLookup? lookup = null, Action<PassedCheck>? passed = null)
     {
         CreatePrivateFolder(paths.Root);
         var settings = ReadSettings(paths);
-        var host = new AgentHost(paths, version ?? Product.Build, Build(paths, settings), plugins ?? [], browsing, lookup);
+        var host = new AgentHost(paths, version ?? Product.Build, Build(paths, settings), plugins ?? [], browsing, lookup, passed);
         host.Apply(settings);
         s_logFile = paths.LogFile;
         // the request details are kept in memory only: a PC that connects sends them again (AgentCommand.Details)
@@ -336,7 +339,8 @@ public sealed class AgentHost : IAsyncDisposable
         }
         catch (StageException e)
         {
-            answer = new AgentMessage(Answers: request.Id, Error: e.Message, ErrorStage: e.Stage);
+            // a check Ferry wouldn't show is left out: the failure stands without it
+            answer = new AgentMessage(Answers: request.Id, Error: e.Message, ErrorStage: e.Stage, Check: e.Check is { IsUsable: true } check ? check : null);
         }
 #pragma warning disable CA1031 // the PC waits for an answer: it gets one, with what went wrong, and the agent goes on
         catch (Exception e)
@@ -471,6 +475,14 @@ public sealed class AgentHost : IAsyncDisposable
                     ? $"{lookup.Name} is off, so nothing is looked up."
                     : "No plugin on the server looks titles up.");
                 return new AgentMessage(Titles: [.. await titles.SearchAsync(request.Name ?? "", cancel)]);
+            case AgentCommand.Passed:
+                if (request.Pass is not { Value.Length: > 0 } pass || !new PersonCheck(pass.Page, pass.Cookie).IsUsable)
+                    throw new InvalidOperationException("No passed check was sent.");
+                if (_passed is null)
+                    throw new InvalidOperationException("No plugin on the server asks for a person's check.");
+                _passed(pass);
+                Log($"a person passed the check of {pass.Page.Host}");
+                return ok;
             default:
                 throw new InvalidOperationException($"The agent doesn't know \"{request.Command}\".");
         }

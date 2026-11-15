@@ -78,6 +78,23 @@ implements `ILookupPlugin`: `Lookup` gives what searches its site for a name and
 first, each as a name and a version. The server does the asking; the PC compares. One installed plugin is asked, the
 first that is on.
 
+### A check for a person
+
+A site may put a check before its pages that only a person in a browser can pass: a picture of characters to type, say.
+A plugin never answers one, and Ferry gives it no way to. It says the check is there, by throwing a `StageException`
+whose `Check` is a `PersonCheck`: the page that shows the check (https) and the name of the cookie the site sets once it
+is passed.
+
+Where a person is, on the Browser page, Ferry opens that page as it is in a browser window of its own, reached through
+the server, so the site sees the address its pages are then read from. The person passes the check; Ferry types nothing.
+When the cookie is there the window closes. A plugin that implements `ICheckedPlugin` then hears of it (`Passed`: the
+cookie's value and the browser's user agent), and whatever was asked is asked once more. Every such plugin hears of
+every pass, so each keeps only those of its own sites, in memory.
+
+Where no person is (a watched album read while the PC is off, a file in the queue) the failure stands as the plugin
+worded it, so the message should say what to do. It needs the server's SSH to pass connections on (`AllowTcpForwarding`,
+which is on unless a host turned it off), and Microsoft Edge WebView2 on the PC.
+
 Reference `Ferry.Core` with `Private="false"`, as the sample does. Ferry has its own, and a package doesn't carry one.
 
 Setting names start with `FERRY_`. `PluginApi.Version` is the contract's number; a package says which it was built
