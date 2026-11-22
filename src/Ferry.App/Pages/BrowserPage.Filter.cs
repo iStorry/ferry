@@ -187,14 +187,27 @@ public sealed partial class BrowserPage
         CloseToHome();
     }
 
-    /// <summary>Esc (when nothing nearer used it) or the keyboard's Back key: back to the albums.</summary>
+    /// <summary>
+    /// When nothing nearer used the key. Esc or the keyboard's Back key: back to the albums. Left or Right: the album
+    /// before or after the open one (StepAlbum); a key held down goes one album only, so the site isn't asked for
+    /// every album passed.
+    /// </summary>
     private void OnPageKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Handled || e.Key is not (VirtualKey.Escape or VirtualKey.GoBack) || (_page is null && _reading is null))
+        if (e.Handled || (_page is null && _reading is null))
             return;
-        e.Handled = true;
-        CloseToHome();
+        if (e.Key is VirtualKey.Escape or VirtualKey.GoBack)
+        {
+            e.Handled = true;
+            CloseToHome();
+        }
+        else if (e.Key is VirtualKey.Left or VirtualKey.Right && !e.KeyStatus.WasKeyDown && !IsDown(VirtualKey.Menu)
+                 && !IsDown(VirtualKey.Control) && !IsDown(VirtualKey.Shift))
+            e.Handled = StepAlbum(e.Key == VirtualKey.Right ? 1 : -1);
     }
+
+    private static bool IsDown(VirtualKey key) =>
+        Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(key).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
 
     /// <summary>The mouse's back button: back to the albums.</summary>
     private void OnPagePointerPressed(object sender, PointerRoutedEventArgs e)

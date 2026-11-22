@@ -52,6 +52,9 @@ public sealed partial class BrowserPage : Page
     public BrowserPage()
     {
         InitializeComponent();
+        // the page can hold the focus itself, unseen, while an album opened from a card is read (OpenCard)
+        IsTabStop = true;
+        UseSystemFocusVisuals = false;
         _refreshInDownloads = new Throttle(DispatcherQueue, RefreshInDownloads);
         SetUpFilters();
         SetUpAlbums();
@@ -128,8 +131,10 @@ public sealed partial class BrowserPage : Page
 
     /// <param name="title">what to call it while it is read, when it is known (an album card's name)</param>
     /// <param name="cover">its picture, when it is known (an album card's); else its first file's stands in</param>
-    private void Open(string link, string? title = null, Uri? cover = null)
+    /// <param name="card">the album card it is opened from, when it is: the arrow keys then go to the cards beside it</param>
+    private void Open(string link, string? title = null, Uri? cover = null, AlbumCardViewModel? card = null)
     {
+        _openCard = card;
         _aheadCard?.SetPointerOver(false); // the albums go, and with them the pointer's leaving the card
         _ = OpenAsync(link, title, cover);
     }
@@ -294,6 +299,7 @@ public sealed partial class BrowserPage : Page
         if (_page is null && _reading is null)
             return;
         _reading?.Cancel();
+        _openCard = null;
         ClosePage();
         Problem.IsOpen = false;
         ShowHome();

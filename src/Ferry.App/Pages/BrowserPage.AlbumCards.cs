@@ -38,6 +38,12 @@ public sealed partial class BrowserPage
     private DispatcherQueueTimer? _aheadTimer;
     private AlbumCardViewModel? _aheadCard;
 
+    // with an album open this near the last card, the next page of albums is read, so Right has somewhere to go
+    private const int ReadMoreWithinCards = 3;
+
+    /// <summary>The card the open page (or the one being read) was opened from, or null when it was opened otherwise.</summary>
+    private AlbumCardViewModel? _openCard;
+
     // a resting pointer reads the card's album ahead, so opening it is quick
     private void OnAlbumCardPointerEntered(object sender, PointerRoutedEventArgs e)
     {
@@ -201,9 +207,43 @@ public sealed partial class BrowserPage
 
     private void OnOpenAlbumCard(object sender, RoutedEventArgs e)
     {
-        if (CardOf(sender) is not { } card)
+        if (CardOf(sender) is { } card)
+            OpenCard(card);
+    }
+
+    /// <summary>
+    /// Open the card's album, and read ahead the one after it (<paramref name="by"/> cards on), so going on to it is
+    /// quick. The page takes the focus: the card that had it goes with the albums, and the arrow keys must still
+    /// reach the page.
+    /// </summary>
+    private void OpenCard(AlbumCardViewModel card, int by = 1)
+    {
+        Focus(FocusState.Programmatic);
+        Open(card.Album.Link.Original.ToString(), card.Title, card.Album.Thumbnail, card);
+        var index = _shownAlbums.IndexOf(card);
+        if (index < 0)
             return;
-        Open(card.Album.Link.Original.ToString(), card.Title, card.Album.Thumbnail);
+        if (index + by >= 0 && index + by < _shownAlbums.Count)
+            _app.Browse.ReadAhead(_shownAlbums[index + by].Album.Link);
+        if (index >= _shownAlbums.Count - ReadMoreWithinCards)
+            LoadMoreForOpenCard();
+    }
+
+    /// <summary>
+    /// Left or Right with an album open that was opened from a card: the album of the card before or after it, in the
+    /// order the cards show. At either end it stays where it is.
+    /// </summary>
+    /// <returns>whether the key was used</returns>
+    private bool StepAlbum(int by)
+    {
+        if (_openCard is not { } card || (_page is null && _reading is null))
+            return false;
+        var index = _shownAlbums.IndexOf(card);
+        if (index < 0)
+            return false; // the cards were read again since
+        if (index + by >= 0 && index + by < _shownAlbums.Count)
+            OpenCard(_shownAlbums[index + by], by);
+        return true;
     }
 
     private void OnDownloadAlbumCard(object sender, RoutedEventArgs e)
@@ -246,7 +286,7 @@ public sealed partial class BrowserPage
             return;
         args.Handled = true;
         var menu = new MenuFlyout();
-        menu.Items.Add(MenuItem("Open", OpenGlyph, () => Open(card.Album.Link.Original.ToString(), card.Title, card.Album.Thumbnail)));
+        menu.Items.Add(MenuItem("Open", OpenGlyph, () => OpenCard(card)));
         menu.Items.Add(MenuItem("Download album", "\uE896", () => _ = DownloadAlbumAsync(card)));
         if (args.TryGetPosition(sender, out var point))
             menu.ShowAt(sender, point);

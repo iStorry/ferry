@@ -202,6 +202,17 @@ public sealed partial class BrowserPage
             _ = ReadAlbumsAsync(more: true);
     }
 
+    /// <summary>The next page of albums while one near the last card is open: scrolling can't ask for it then.</summary>
+    private void LoadMoreForOpenCard()
+    {
+        if (_readingAlbums is not null || _moreFailed || _app.Browse.AlbumsEnded)
+            return;
+        // as when scrolling: cards whose sizes aren't read yet may still show, and be where Right goes
+        if (_albumMinSize > 0 && _albumCards.Any(card => !card.DetailsRead))
+            return;
+        _ = ReadAlbumsAsync(more: true);
+    }
+
     /// <summary>The first page for the search in the box, or with <paramref name="more"/> the next page of the albums shown.</summary>
     /// <param name="fresh">read it again, even when it was read lately (Refresh)</param>
     private async Task ReadAlbumsAsync(bool more, bool fresh = false)
