@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.0.3 (pre-release)
+
+On the Browser page, with an album open that was opened from its card, Left and Right go to the album before and after
+it, in the order the cards show.
+
+- The album after the one you open is read ahead, so going on to it is quick; near the last card, the next page of albums
+  is read too.
+- A key held down goes one album only, so the site isn't asked for every album passed.
+- A control that uses the arrows keeps them: the file grid, the find box, the kinds.
+
+It has been built, and not yet used.
+
 ## 0.0.2 (pre-release)
 
 A site's check for a person is shown to the person. Some sites put a check before their pages that only a person in a
