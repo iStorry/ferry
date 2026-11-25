@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Ferry.App.Services;
 using Ferry.App.ViewModels;
 using Ferry.Core.Browse;
@@ -183,7 +184,7 @@ public sealed partial class BrowserPage
     /// <summary>Alt+Left: back to the albums.</summary>
     private void OnBackAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        args.Handled = _page is not null || _reading is not null;
+        args.Handled = IsOpen;
         CloseToHome();
     }
 
@@ -194,7 +195,7 @@ public sealed partial class BrowserPage
     /// </summary>
     private void OnPageKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Handled || (_page is null && _reading is null))
+        if (e.Handled || !IsOpen)
             return;
         if (e.Key is VirtualKey.Escape or VirtualKey.GoBack)
         {
@@ -206,13 +207,27 @@ public sealed partial class BrowserPage
             e.Handled = StepAlbum(e.Key == VirtualKey.Right ? 1 : -1);
     }
 
-    private static bool IsDown(VirtualKey key) =>
-        Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(key).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+    // the key as it is held now, not as the window last saw it: after Alt+Tab, Alt's release may have gone elsewhere
+    private static bool IsDown(VirtualKey key) => GetAsyncKeyState((int)key) < 0;
+
+    [LibraryImport("user32.dll")]
+    private static partial short GetAsyncKeyState(int key);
+
+    /// <summary>
+    /// The window is in front again with an album open and the focus nowhere: the page takes it, so the arrow keys
+    /// still reach it.
+    /// </summary>
+    private void OnWindowActivated(object sender, WindowActivatedEventArgs args)
+    {
+        if (args.WindowActivationState != WindowActivationState.Deactivated && IsOpen && XamlRoot is { } root
+            && FocusManager.GetFocusedElement(root) is null)
+            Focus(FocusState.Programmatic);
+    }
 
     /// <summary>The mouse's back button: back to the albums.</summary>
     private void OnPagePointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        if (!e.GetCurrentPoint(this).Properties.IsXButton1Pressed || (_page is null && _reading is null))
+        if (!e.GetCurrentPoint(this).Properties.IsXButton1Pressed || !IsOpen)
             return;
         e.Handled = true;
         CloseToHome();

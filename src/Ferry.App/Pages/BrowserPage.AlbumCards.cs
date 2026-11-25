@@ -236,7 +236,7 @@ public sealed partial class BrowserPage
     /// <returns>whether the key was used</returns>
     private bool StepAlbum(int by)
     {
-        if (_openCard is not { } card || (_page is null && _reading is null))
+        if (_openCard is not { } card || !IsOpen)
             return false;
         var index = _shownAlbums.IndexOf(card);
         if (index < 0)

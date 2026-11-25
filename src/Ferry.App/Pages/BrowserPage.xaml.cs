@@ -37,6 +37,15 @@ public sealed partial class BrowserPage : Page
     /// <summary>The page open, or null.</summary>
     private BrowsedPage? _page;
 
+    /// <summary>
+    /// The album opened from a card couldn't be read: its banner shows with why, in its place among the cards, so
+    /// Left and Right go on from it.
+    /// </summary>
+    private bool _notRead;
+
+    /// <summary>A page is open, being read, or shown as not read: the albums are not what shows.</summary>
+    private bool IsOpen => _page is not null || _reading is not null || _notRead;
+
     /// <summary>Files added to the open album since it was last looked at, when it is watched.</summary>
     private HashSet<string> _newSlugs = [];
 
@@ -97,6 +106,8 @@ public sealed partial class BrowserPage : Page
         _app.Queue.Changed += OnQueueChanged;
         _app.Queue.QueueReplaced += RefreshInDownloads;
         _app.Browse.Changed += OnBrowseChanged;
+        if (App.Window is { } window)
+            window.Activated += OnWindowActivated;
         FollowAlbumScrolling();
         RefreshInDownloads();
         ShowWhere();
@@ -113,6 +124,8 @@ public sealed partial class BrowserPage : Page
         _app.Queue.Changed -= OnQueueChanged;
         _app.Queue.QueueReplaced -= RefreshInDownloads;
         _app.Browse.Changed -= OnBrowseChanged;
+        if (App.Window is { } window)
+            window.Activated -= OnWindowActivated;
         _refreshInDownloads.Stop(); // done on coming back
         StopFollowingAlbumScrolling();
         // the page is kept (NavigationCacheMode): what it is reading carries on, for when it shows again
@@ -162,6 +175,7 @@ public sealed partial class BrowserPage : Page
         RememberHomePlace();
         ShowReading(link, title);
         var watched = _app.Browse.Watcher.Find(link) is not null;
+        string? failed = null;
         try
         {
             var page = await _app.Browse.OpenAsync(link, reading.Token, fresh: watched);
@@ -176,12 +190,12 @@ public sealed partial class BrowserPage : Page
         }
         catch (StageException ex)
         {
-            ShowProblem(ReadFailed, ex.Message);
+            failed = ex.Message;
         }
         catch (Exception ex) when (ex is FormatException or InvalidOperationException or ArgumentException)
         {
             CrashLog.Write("reading a page", ex);
-            ShowProblem(ReadFailed, ex.Message);
+            failed = ex.Message;
         }
         finally
         {
@@ -190,9 +204,33 @@ public sealed partial class BrowserPage : Page
                 _reading = null;
                 ReadingRing.IsActive = false;
                 Reading.Visibility = Visibility.Collapsed;
+                if (failed is not null)
+                    ShowNotRead(link, failed);
                 ShowHome();
             }
         }
+    }
+
+    /// <summary>
+    /// Why the page couldn't be read. One opened from a card stays open as its banner alone, with no files and nothing
+    /// to do but go back or on to the next: the albums would lose the place the arrow keys go on from.
+    /// </summary>
+    private void ShowNotRead(PageLink link, string why)
+    {
+        if (_openCard is { } card)
+        {
+            _notRead = true;
+            HeroCover.Background = Backdrop.Background = AlbumCovers.Placeholder(link.Slug);
+            HeroInitial.Text = AlbumCovers.Initial(card.Title);
+            HeroPicture.Background = card.Thumbnail is { } picture ? new ImageBrush { ImageSource = picture, Stretch = Stretch.UniformToFill } : null;
+            KindText.Text = $"{link.Original.Host}{link.Original.AbsolutePath}";
+            PageTitle.Text = card.Title;
+            ShowFacts();
+            HeroActions.Visibility = Visibility.Collapsed;
+            Result.Visibility = Visibility.Visible;
+            Heading.Visibility = Visibility.Collapsed;
+        }
+        ShowProblem(ReadFailed, why);
     }
 
     private void ShowReading(PageLink link, string? title)
@@ -296,7 +334,7 @@ public sealed partial class BrowserPage : Page
     /// <summary>Close the page open, back to the albums where they were.</summary>
     private void CloseToHome()
     {
-        if (_page is null && _reading is null)
+        if (!IsOpen)
             return;
         _reading?.Cancel();
         _openCard = null;
@@ -310,6 +348,8 @@ public sealed partial class BrowserPage : Page
     {
         _filePictures?.Cancel();
         _page = null;
+        _notRead = false;
+        HeroActions.Visibility = Visibility.Visible;
         Files.Clear();
         _fileRows.Clear();
         Result.Visibility = Visibility.Collapsed;

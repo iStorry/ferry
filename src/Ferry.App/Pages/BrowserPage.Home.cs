@@ -13,7 +13,7 @@ public sealed partial class BrowserPage
 
     private void ShowHome()
     {
-        var empty = _page is null && Reading.Visibility == Visibility.Collapsed;
+        var empty = _page is null && !_notRead && Reading.Visibility == Visibility.Collapsed;
         Home.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
         if (!empty)
             return;
