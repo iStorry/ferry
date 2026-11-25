@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.0.4 (pre-release)
+
+On the Browser page, going through albums with Left and Right keeps going.
+
+- An album opened from its card that can't be read stays open, as its name and cover with why it couldn't be read, in
+  place of going back to the albums. Left and Right go on to the albums beside it, and going back finds the albums where
+  they were.
+- Left and Right work again after switching to another window and back with Alt+Tab.
+
+It has been built, and not yet used.
+
 ## 0.0.3 (pre-release)
 
 On the Browser page, with an album open that was opened from its card, Left and Right go to the album before and after

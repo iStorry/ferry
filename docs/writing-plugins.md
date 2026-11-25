@@ -3,7 +3,7 @@
 A plugin teaches Ferry a site: which links are its own, and how to get from one of them to the file. The plugins that
 come with Ferry are compiled in. One you write is a package, `name.ferryplugin`, that people install.
 
-**Where this stands (0.0.3):** all of it is built, and little of it has been used. Packing, checking and the agent
+**Where this stands (0.0.4):** all of it is built, and little of it has been used. Packing, checking and the agent
 loading a package have been run. Putting a package on a real server over SSH has not.
 
 ## Installing one

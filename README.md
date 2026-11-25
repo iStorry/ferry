@@ -41,11 +41,11 @@ Paste a link and it downloads over several connections, pausing and resuming whe
 </tr>
 </table>
 
-Ferry is at 0.0.3. Most plugins have been tried against fake servers only, not yet the real sites.
+Ferry is at 0.0.4. Most plugins have been tried against fake servers only, not yet the real sites.
 
 ## Install
 
-From [Releases](https://github.com/iStorry/ferry/releases). 0.0.3 is a pre-release, so it is listed there but not marked
+From [Releases](https://github.com/iStorry/ferry/releases). 0.0.4 is a pre-release, so it is listed there but not marked
 as the latest:
 
 - `Ferry-{version}-setup.exe` installs for your user (no admin). The installed app updates itself.
